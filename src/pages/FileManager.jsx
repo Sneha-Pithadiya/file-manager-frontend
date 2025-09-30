@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaDownload, FaEye } from "react-icons/fa";
+import { FaCross, FaDownload, FaEye, FaTrash } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
+import { FaEllipsis, FaXmark } from "react-icons/fa6";
 
 export default function FileManager() {
   const [files, setFiles] = useState([]);
@@ -21,6 +22,7 @@ export default function FileManager() {
   const [viewType, setViewType] = useState("grid");
   const [sortOrder, setSortOrder] = useState([{ dir: "asc" }]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isClickFile, setIsClickFile] = useState(false);
 
   const token = localStorage.getItem("token");
 
@@ -172,14 +174,14 @@ export default function FileManager() {
     }
   };
   //open folder
-  const handleFolderClick = async (folderId) => {
+  const handleFolderClick = async (folderId, folderName) => {
     try {
       const res = await fetch(`http://127.0.0.1:8000/files/folder/${folderId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       setFiles(data); // update your frontend state
-      setBreadcrumb(prev => [...prev, { id: folderId, name: data.name || "Folder" }]);
+      setBreadcrumb(prev => [...prev, { id: folderId, name: folderName }]);
     } catch (err) {
       console.error("Failed to open folder:", err);
     }
@@ -206,6 +208,13 @@ export default function FileManager() {
   const formatDate = (dateStr) =>
     dateStr ? new Date(dateStr).toLocaleString() : "";
 
+
+  //Action Icon show / hide
+
+  const handleFileClick = (id) => {
+    setIsClickFile(isClickFile === id ? null : id);
+
+  }
   return (
     <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors">
       {/* <h1 className="text-3xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">
@@ -256,73 +265,110 @@ export default function FileManager() {
         ) : (
           filteredFiles.map((file) =>
             viewType === "grid" ? (
-              <div onClick={() => file.type === "folder" && handleFolderClick(file.id)}
+              <div onClick={() => file.is_folder && handleFolderClick(file.id, file.original_name)}
+
                 key={file.id}
                 className=" border-gray-500 p-4 rounded shadow flex flex-col items-center text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
               >
+                <div className="text-white text-right flex justify-end ms-auto hover:bg-gray-800  rounded-2xl p-2" onClick={() => handleFileClick(file.id)}><FaEllipsis /></div>
                 <div className="mb-2">
                   {getFileIcon(file, 40)} {/* size 40px */}
                 </div>
                 <p className="text-gray-900 dark:text-gray-500 text-xs">
                   {file.original_name}
                 </p>
-                {/* <div className="mt-2 flex gap-2">
-                  {!file.is_folder && (
-                    <button
-                      onClick={() =>
-                        handleDownload(file.id, file.original_name)
-                      }
-                      className="text-green-800 hover:text-green-600  px-2 py-1 rounded shadow"
-                    >
-                      <FaDownload />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleViewLogs(file.id, file.original_name)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded shadow"
-                  >
-                    <FaEye />
-                  </button>
-                </div> */}
-              </div>
-            ) : (
-              <tr key={file.id}>
-                <td className="px-4 py-2 flex items-center gap-2 text-gray-800 dark:text-gray-500">
-                  <div className="mb-2">
-                    {getFileIcon(file, 20)} {/* size 40px */}
+                {isClickFile === file.id && (
+                  <div className=" flex items-center justify-center relative z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute   w-50 max-w-lg p-6 ">
+                      <div className="flex justify-between items-center mb-4 text-sm pb-2 text-end text-right">
+
+                        <button className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1 text-end" onClick={() => setIsClickFile(false)}><FaXmark /></button>
+                      </div>
+                      <div className="flex justify-between items-center mb-4 text-sm ">
+
+                        <button
+                          onClick={() =>
+                            handleDownload(file.id, file.original_name)
+                          }
+                          className=" flex text-gray-500 hover:text-green-200"
+                        >
+                          <FaDownload className="mr-2" /> Download
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center mb-4 text-sm">
+
+                        <button
+                          onClick={() => handleViewLogs(file.id, file.original_name)}
+                          className=" flex text-gray-500 hover:text-blue-200"
+                        >
+                          <FaEye className="mr-2" /> Details
+                        </button>
+                      </div>
+
+                      <div className="flex justify-between items-center mb-4 text-sm">
+
+                        <button
+                          onClick={() => handleViewLogs(file.id, file.original_name)}
+                          className=" flex text-gray-500 hover:text-red-200"
+                        >
+                          <FaTrash className="mr-2" /> Delete
+                        </button>
+                      </div>
+
+
+                      {/* <div className="mt-4 flex justify-end gap-3">
+                        <button
+                          onClick={() => setIsClickFile(false)}
+                          className="bg-gray-300 hover:bg-gray-400 text-black dark:text-white px-4 py-2 rounded shadow transition"
+                        >
+                          Close
+                        </button>
+                       
+                      </div> */}
+                    </div>
+
                   </div>
 
-                  <div className="text-xs"> {file.original_name}</div>
+                )}
+              </div>
+            ) : (
+              <>
+                <table className=" w-full">
+                  <tbody>
 
-                </td>
-                {/* <td className="px-4 py-2 text-gray-800 dark:text-gray-100">
-                  {file.is_folder ? "Folder" : "File"}
-                </td>
-                <td className="px-4 py-2 text-gray-800 dark:text-gray-100">
-                  {file.uploaded_by}
-                </td>
-                <td className="px-4 py-2 text-gray-800 dark:text-gray-100">
-                  {formatDate(file.uploaded_at)}
-                </td>
-                <td className="px-4 py-2 flex gap-2 justify-center">
-                 
-                    <button
-                      onClick={() =>
-                        handleDownload(file.id, file.original_name)
-                      }
-                      className="bg-green-800 hover:bg-green-600 text-white px-3 py-1 rounded shadow"
-                    >
-                      <FaDownload />
-                    </button>
-                 
-                  <button
-                    onClick={() => handleViewLogs(file.id, file.original_name)}
-                    className="bg-blue-800 hover:bg-blue-600 text-white px-3 py-1 rounded shadow"
-                  >
-                   <FaEye />
-                  </button>
-                </td> */}
-              </tr>
+                    {files.map((file) => (
+                      <tr key={file.id} className="border-b border-gray-700 py-3 w-full">
+                        <td className="px-4 py-2 flex items-center gap-2 text-gray-800 dark:text-gray-500">
+                          {getFileIcon(file, 20)} {/* icon size 20 */}
+                          <div className="text-xs">{file.original_name}</div>
+                        </td>
+                        <td className="px-4 py-2 text-gray-500">{file.uploaded_by}{file.uploaded_at}</td>
+                        <td className="px-4 py-2">
+                          <button
+                            onClick={() => handleDownload(file.id, file.original_name)}
+                            className="hover:text-green-400 text-gray-500 px-3 py-1 rounded shadow"
+                          >
+                            <FaDownload />
+                          </button>
+                        </td>
+                        <td className="px-4 py-2">
+                          <button
+                            onClick={() => handleViewLogs(file.id, file.original_name)}
+                            className="hover:text-blue-400 text-gray-500 px-3 py-1 rounded shadow"
+                          >
+                            <FaEye />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+
+
+              </>
+
+
             )
           )
         )}
@@ -332,19 +378,20 @@ export default function FileManager() {
       {logModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg p-6 relative">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            <div className="flex justify-between items-center mb-4 border-b border-gray-500 pb-3">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 ">
                 {currentFileName} - Logs
               </h2>
               <button
                 onClick={() => setLogModalOpen(false)}
-                className="text-red-500 font-bold text-xl hover:text-red-700 dark:hover:text-red-400 transition"
+                className="text-red-500   px-1 font-bold text-xl hover:text-red-700 dark:hover:text-red-400 transition"
               >
                 ×
               </button>
+
             </div>
 
-            <div className="max-h-96 overflow-y-auto border rounded p-2 bg-gray-50 dark:bg-gray-700">
+            <div className="max-h-96 overflow-y-auto border-b  border-gray-500  pb-2  text-sm">
               {currentLogs.length > 0 ? (
                 currentLogs.map((log, index) => (
                   <div
@@ -363,22 +410,17 @@ export default function FileManager() {
 
             <div className="mt-4 flex justify-end gap-3">
               <button
-                onClick={() => setLogModalOpen(false)}
-                className="bg-gray-300 hover:bg-gray-400 text-black dark:text-white px-4 py-2 rounded shadow transition"
-              >
-                Close
-              </button>
-              <button
                 onClick={downloadLogs}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow transition"
+                className="bg-green-500 flex hover:bg-green-600 text-white px-4 py-2 rounded shadow transition"
               >
-                Download Logs
+                <FaDownload className="mr-2 mt-1" /> Log File
               </button>
             </div>
           </div>
 
         </div>
       )}
+
     </div>
   );
 }

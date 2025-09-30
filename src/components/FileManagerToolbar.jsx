@@ -1,6 +1,6 @@
 // FileManagerToolbar.jsx
 import React, { useState } from "react";
-import { FaArrowUp, FaArrowDown, FaTh, FaList } from 'react-icons/fa';
+import { FaArrowUp, FaArrowDown, FaTh, FaList, FaPlus, FaUpload, FaSearch, FaCloudUploadAlt } from 'react-icons/fa';
 
 export const FileManagerToolbar = ({
   files,
@@ -34,20 +34,28 @@ export const FileManagerToolbar = ({
 
   return (
     <div className="flex flex-wrap items-center gap-3 mx-0 mb-4 p-3 bg-white dark:bg-gray-800 shadow rounded">
+        <FaSearch className="text-gray-200"/>
+        <input
+          type="text"
+          placeholder="Search files , folders ..."
+          className="pr-3 py-1 rounded  focus:outline-none focus:ring-none   dark:text-gray-100 w-1/2 "
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+        <div className="flex ml-auto ">
       {/* New Folder Button */}
       <button
         onClick={onNewFolderClick}
-        className="border border-blue-800 hover:bg-gray-600 text-white px-4 py-2 rounded shadow transition"
+        className="hover:bg-purple-600 border border-purple-500 bg-purple-500 text-white px-4 py-2 rounded shadow transition flex mx-2"
       >
-        New Folder
+       <FaPlus className="mr-2 mt-1"/> Create Folder
       </button>
 
       {/* Upload Button */}
       <button
         onClick={() => setDialogVisible(!dialogVisible)}
-        className="border border-green-800 hover:bg-gray-600 text-white px-4 py-2 rounded shadow transition"
+        className="border border-gray-600 hover:bg-gray-700 bg-gray-500 text-white px-4 py-2 rounded shadow transition flex mx-2"
       >
-        Upload
+       <FaCloudUploadAlt className="mr-2 mt-1"/> Upload
       </button>
 
       {/* Upload Dialog */}
@@ -63,15 +71,15 @@ export const FileManagerToolbar = ({
               
               multiple
               onChange={handleFileSelect}
-              className="w-full mb-4"
+              className="w-full mb-4 text-gray-600 "
             />
 
             <div className="flex justify-end gap-2">
               <button
-                onClick={onClearFileList}
-                className="bg-gray-300 hover:bg-gray-400 text-black dark:text-white px-4 py-2 rounded shadow"
+                onClick={()=>setDialogVisible(!dialogVisible)}
+                className=" hover:bg-gray-400 hover:text-black text-black dark:text-white px-4 py-2 rounded shadow"
               >
-                Clear List
+               Cancel
               </button>
               <button
                 onClick={handleUploadDone}
@@ -83,9 +91,9 @@ export const FileManagerToolbar = ({
           </div>
         </div>
       )}
-
+      
       {/* Sorting Buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 mx-2">
         <button
           className={`px-3 py-3 rounded shadow ${
             sort[0].dir === "asc" ? "border text-white" : "bg-gray-800 border border-gray-800 text-gray-500"
@@ -137,13 +145,6 @@ export const FileManagerToolbar = ({
       </div> */}
 
       {/* Search Input */}
-      <div className="ml-auto">
-        <input
-          type="text"
-          placeholder="Search"
-          className="px-3 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:text-gray-100"
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
       </div>
     </div>
   );
