@@ -3,7 +3,7 @@ import React from "react";
 
 export const BreadcrumbComponent = ({ data = [], onBreadcrumbSelect }) => {
   return (
-    <nav className="flex text-gray-700 dark:text-gray-300 text-sm mb-4" aria-label="Breadcrumb">
+    <nav className="flex text-gray-700 dark:text-gray-300 text-sm mb-2 " aria-label="Breadcrumb">
       {data.map((item, index) => (
         <div key={item.id} className="flex items-center">
           <button

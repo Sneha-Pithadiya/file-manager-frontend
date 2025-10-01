@@ -91,7 +91,7 @@ export const FileManagerToolbar = ({
           </div>
         </div>
       )}
-      
+      {/* create new folder */}
       {/* Sorting Buttons */}
       <div className="flex gap-2 mx-2">
         <button

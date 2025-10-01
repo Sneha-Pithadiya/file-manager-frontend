@@ -1,1 +1,12 @@
 @import "tailwindcss";
+    /* PageControl.css */
+    .page-control {
+      position: fixed; /* Fixes the element relative to the viewport */
+      bottom: 0;      /* Positions it at the bottom */
+      left: 0;        /* Aligns it to the left */
+      width: 100%;    /* Makes it span the full width */
+      
+      padding: 5px 20px; /* Example padding */
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.1); /* Optional shadow */
+      z-index: 1000; /* Ensure it stays above other content */
+    }
