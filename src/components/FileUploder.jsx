@@ -44,13 +44,20 @@ const FileUpload = ({ multiple = false }) => {
   };
 
   return (
-    <div className="p-4 border rounded-lg shadow-md w-96 bg-white">
+    <div
+      {...getRootProps()}
+      className={`p-4 border rounded-lg shadow-md w-96 bg-white dropzone ${isDragActive ? 'active' : ''}`}
+    >
       <input
+        {...getInputProps()}
         type="file"
-        multiple={multiple}
+        multiple
+        webkitdirectory="true"
         onChange={handleFileChange}
         className="mb-2"
       />
+      <p>Drag & drop files or folders here, or click to select</p>
+
 
       {files.length > 0 && (
         <ul className="text-sm text-gray-600 mb-2">

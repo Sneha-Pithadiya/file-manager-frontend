@@ -18,84 +18,26 @@ export default function FileManager() {
   const [currentFileName, setCurrentFileName] = useState("");
   const [currentFileId, setCurrentFileId] = useState(null);
 
-  const [breadcrumb, setBreadcrumb] = useState([{ name: "Home", id: null }]);
+  const [breadcrumb, setBreadcrumb] = useState([{ name: "", id: null }]);
   const [showDetails, setShowDetails] = useState(true);
   const [viewType, setViewType] = useState("grid");
   const [sortOrder, setSortOrder] = useState([{ dir: "asc" }]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isClickFile, setIsClickFile] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);  
+  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [limit] = useState(10);
-  
-  
+  const [limit] = useState(100);
+
+
   const token = localStorage.getItem("token");
-  const fetchFiles = async (folderId = null) => {
-    try {
-      const url = folderId
-        ? `http://127.0.0.1:8000/files?folder=${folderId}&page=${currentPage}&limit=${limit}`
-        : `http://127.0.0.1:8000/files?page=${currentPage}&limit=${limit}`;
-
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-
-      setFiles(data.data);        
-      setTotalPages(data.pages);   
-    } catch (err) {
-      console.error(err);
-      setMessage("Failed to fetch files");
-    }
-  };
 
   useEffect(() => {
-    const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
-    fetchFiles(parentId);
+    const parentPath = breadcrumb.map(b => b.name).join("/");
+    fetchFiles(parentPath);
+
   }, [currentPage, breadcrumb]);
 
-  // Upload Files
-  const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
-    setLoading(true);
 
-    const formData = new FormData();
-
-
-    selectedFiles.forEach(file => formData.append("uploaded_file", file));
-    const parentId = breadcrumb[breadcrumb.length - 1]?.id;
-    if (parentId != null) {
-      formData.append("parent_id", parentId);
-    }
-
-
-
-
-    try {
-      const res = await fetch("http://127.0.0.1:8000/files/upload", {
-        method: "POST",
-        body: formData,
-        headers: { Authorization: `Bearer ${token}` }, 
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Upload failed");
-
-      setMessage("Files uploaded successfully!");
-      setSelectedFiles([]);
-      fetchFiles(breadcrumb[breadcrumb.length - 1]?.id || null); 
-
-      setTimeout(() => setMessage(""), 3000);
-    } catch (err) {
-      setMessage(err.message);
-      setTimeout(() => setMessage(""), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Download file
   const handleDownload = async (fileId, originalName) => {
     try {
       const res = await fetch(
@@ -117,7 +59,6 @@ export default function FileManager() {
       setMessage(err.message);
     }
   };
-  // View Logs
   const handleViewLogs = async (fileId, fileName) => {
     try {
       const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`,
@@ -134,28 +75,8 @@ export default function FileManager() {
     }
   };
 
-  const handleDeleteFile = async (fileId) => {
-    try {
-      console.log("Token:", token);
-
-      const res = await fetch(`http://127.0.0.1:8000/files/delete/${fileId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to delete file");
-      }
-
-      setMessage("File Deleted Successfully");
-    } catch (err) {
-      setMessage(err.message);
-    }
-  };
 
 
-  //download logs
   const downloadLogs = async () => {
     if (!currentFileId) return;
     try {
@@ -179,12 +100,17 @@ export default function FileManager() {
     }
   };
 
-  // Create New Folder
   const handleNewFolderClick = async () => {
     const folderName = prompt("Enter folder name:");
-    if (!folderName) return;
+    if (!folderName || folderName.trim() === "") {
+      setMessage("Folder name cannot be empty!");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
 
     try {
+      const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
+
       const res = await fetch("http://127.0.0.1:8000/files/folder", {
         method: "POST",
         headers: {
@@ -192,40 +118,28 @@ export default function FileManager() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: folderName,
-          parent_id: breadcrumb[breadcrumb.length - 1]?.id,   
+          name: folderName.trim(),
+          parent_id: parentId,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to create folder");
-      setMessage("Folder created successfully!");
-      fetchFiles(breadcrumb[breadcrumb.length - 1].id);
-      setTimeout(() => setMessage(""), 3000);
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to create folder");
+      }
+
+      setMessage(`Folder "${data.name}" created successfully!`);
+
+      fetchFiles(parentId);
+
     } catch (err) {
-      setMessage(err.message);
+      setMessage(err.message || "Error creating folder");
+    } finally {
       setTimeout(() => setMessage(""), 3000);
     }
   };
 
-  const handleFolderClick = async (folderId, folderName) => {
-    try {
-      await fetchFiles(folderId);
-      setBreadcrumb(prev => [...prev, { id: folderId, name: folderName }]);
-    } catch (err) {
-      console.error("Failed to open folder:", err);
-    }
-  };
-
-
-  // Handle Breadcrumb
-  const handleBreadcrumbSelect = (item, index) => {
-    setBreadcrumb(breadcrumb.slice(0, index + 1));
-    fetchFiles(item.id || null);
-    console.log('hi');
-  };
-
-  // Filter and Sort
   const filteredFiles = files
     .filter((file) => file.original_name)
 
@@ -239,20 +153,108 @@ export default function FileManager() {
       return b.original_name.localeCompare(a.original_name);
     });
 
-  // Format Date
   const formatDate = (dateStr) =>
     dateStr ? new Date(dateStr).toLocaleString() : "";
 
 
-  //Action Icon show / hide
 
   const handleFileClick = (id) => {
     setIsClickFile(isClickFile === id ? null : id);
   }
+  const fetchFiles = async (folderId = null) => {
+    try {
+      const url = folderId
+        ? `http://127.0.0.1:8000/files/folder/${folderId}`
+        : `http://127.0.0.1:8000/files/folder/0`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch files");
+
+      const data = await res.json();
+      setFiles(data);
+    } catch (err) {
+      console.error(err);
+      setMessage("");
+      setFiles([]);
+    }
+  };
+
+
+  const handleFolderClick = (folderId, folderName) => {
+    const newBreadcrumb = [...breadcrumb, { name: folderName, id: folderId }];
+    setBreadcrumb(newBreadcrumb);
+
+    fetchFiles(folderId);
+  };
+
+  const handleBreadcrumbSelect = (item, index) => {
+    const newBreadcrumb = breadcrumb.slice(0, index + 1);
+    setBreadcrumb(newBreadcrumb);
+
+    fetchFiles(item.id);
+  };
+
+
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) return;
+    setLoading(true);
+
+    const formData = new FormData();
+    selectedFiles.forEach((file) => formData.append("uploaded_file", file));
+    const parentId = breadcrumb[breadcrumb.length - 1]?.id;
+    if (parentId != null) formData.append("parent_id", parentId);
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/files/upload", {
+        method: "POST",
+        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Upload failed");
+
+      setMessage("Files uploaded successfully!");
+      setSelectedFiles([]);
+
+      const folderPath = breadcrumb.map((b) => b.name).join("/");
+      fetchFiles(folderPath);
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
+
+  const handleDeleteFile = async (fileId) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/files/delete/${fileId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to delete file");
+      }
+
+      setMessage("File deleted successfully");
+
+      const folderPath = breadcrumb.map((b) => b.name).join("/");
+      fetchFiles(folderPath);
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
 
   return (
     <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors">
-      
+
 
 
       {/* Message */}
@@ -274,7 +276,7 @@ export default function FileManager() {
         onSearchChange={setSearchQuery}
         onSwitchChange={(e) => setShowDetails(e.target.checked)}
         sort={sortOrder}
-        splitItems={[]} 
+        splitItems={[]}
       />
 
       {/* Breadcrumb */}
@@ -314,51 +316,51 @@ export default function FileManager() {
                   >
                     {file.original_name}
                   </p>
-                   {isClickFile === file.id && (
-                  <div className=" flex items-center justify-center relative z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute   w-50 max-w-lg p-6 ">
-                      <div className="flex justify-between items-center mb-4 text-sm pb-2 text-end text-right">
+                  {isClickFile === file.id && (
+                    <div className=" flex items-center justify-center relative z-50">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute   w-50 max-w-lg p-6 ">
+                        <div className="flex justify-between items-center mb-4 text-sm pb-2 text-end text-right">
 
-                        <button className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1 text-end" onClick={() => setIsClickFile(false)}><FaXmark /></button>
+                          <button className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1 text-end" onClick={() => setIsClickFile(false)}><FaXmark /></button>
+                        </div>
+                        <div className="flex justify-between items-center mb-4 text-sm ">
+
+                          <button
+                            onClick={() =>
+                              handleDownload(file.id, file.original_name)
+                            }
+                            className=" flex text-gray-500 hover:text-green-200"
+                          >
+                            <FaDownload className="mr-2" /> Download
+                          </button>
+                        </div>
+                        <div className="flex justify-between items-center mb-4 text-sm">
+
+                          <button
+                            onClick={() => handleViewLogs(file.id, file.original_name)}
+                            className=" flex text-gray-500 hover:text-blue-200"
+                          >
+                            <FaEye className="mr-2" /> Details
+                          </button>
+                        </div>
+
+                        <div className="flex justify-between items-center mb-4 text-sm">
+
+                          <button
+                            onClick={() => handleDeleteFile(file.id, file.original_name)}
+                            className=" flex text-gray-500 hover:text-red-200"
+                          >
+                            <FaTrash className="mr-2" /> Delete
+                          </button>
+                        </div>
+
+
+
                       </div>
-                      <div className="flex justify-between items-center mb-4 text-sm ">
 
-                        <button
-                          onClick={() =>
-                            handleDownload(file.id, file.original_name)
-                          }
-                          className=" flex text-gray-500 hover:text-green-200"
-                        >
-                          <FaDownload className="mr-2" /> Download
-                        </button>
-                      </div>
-                      <div className="flex justify-between items-center mb-4 text-sm">
-
-                        <button
-                          onClick={() => handleViewLogs(file.id, file.original_name)}
-                          className=" flex text-gray-500 hover:text-blue-200"
-                        >
-                          <FaEye className="mr-2" /> Details
-                        </button>
-                      </div>
-
-                      <div className="flex justify-between items-center mb-4 text-sm">
-
-                        <button
-                          onClick={() => handleDeleteFile(file.id, file.original_name)}
-                          className=" flex text-gray-500 hover:text-red-200"
-                        >
-                          <FaTrash className="mr-2" /> Delete
-                        </button>
-                      </div>
-
-
-                     
                     </div>
 
-                  </div>
-
-                )}
+                  )}
                 </div>
               ) : (
                 <tr key={file.id} className="border-b border-gray-700 py-3 w-full p-3">
@@ -403,7 +405,7 @@ export default function FileManager() {
             onClick={() => setCurrentPage((prev) => prev - 1)}
             className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
           >
-           <BiLeftArrowCircle />
+            <BiLeftArrowCircle />
           </button>
           <span className="px-3 py-1 text-gray-300"> <span className="text-green-500">{currentPage}</span> / {totalPages}</span>
           <button
@@ -414,7 +416,7 @@ export default function FileManager() {
             <BiRightArrowCircle />
           </button>
         </div>)}
-        
+
       </div>
 
       {/* Log Modal */}
