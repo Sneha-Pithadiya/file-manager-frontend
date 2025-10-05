@@ -1,93 +1,99 @@
 import React, { useState } from "react";
-import axios from "axios";
 
-const FileUpload = ({ multiple = false }) => {
-  const [files, setFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+export const UploadDialog = ({ files, onFileChange, onUploadDone, onCancel }) => {
+  const [filesManager, setFilesManager] = useState([]);
 
-  const handleFileChange = (e) => {
-    if (multiple) {
-      setFiles([...e.target.files]);
-    } else {
-      setFiles([e.target.files[0]]);
-    }
+  // Handle adding new files (from input or drop)
+  const addFiles = (newFiles) => {
+    const uniqueFiles = [
+      ...filesManager,
+      ...newFiles.filter(
+        (f) => !filesManager.some((file) => file.name === f.name)
+      ),
+    ];
+    setFilesManager(uniqueFiles);
+    onFileChange({ files: uniqueFiles });
   };
 
-  const handleUpload = async () => {
-    if (files.length === 0) return alert("Please select a file first");
+  const handleFileSelect = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    addFiles(selectedFiles);
+  };
 
-    const formData = new FormData();
-    files.forEach((file) => formData.append("files", file));
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    addFiles(droppedFiles);
+  };
 
-    try {
-      setUploading(true);
-      setProgress(0);
-
-      await axios.post("http://127.0.0.1:8000/file/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (event) => {
-          if (event.total) {
-            setProgress(Math.round((100 * event.loaded) / event.total));
-          }
-        },
-      });
-
-      alert("Upload successful!");
-      setFiles([]);
-    } catch (err) {
-      console.error(err);
-      alert("Upload failed!");
-    } finally {
-      setUploading(false);
-    }
+  const handleRemoveFile = (idx) => {
+    const newFiles = filesManager.filter((_, i) => i !== idx);
+    setFilesManager(newFiles);
+    onFileChange({ files: newFiles });
   };
 
   return (
-    <div
-      {...getRootProps()}
-      className={`p-4 border rounded-lg shadow-md w-96 bg-white dropzone ${isDragActive ? 'active' : ''}`}
-    >
-      <input
-        {...getInputProps()}
-        type="file"
-        multiple
-        webkitdirectory="true"
-        onChange={handleFileChange}
-        className="mb-2"
-      />
-      <p>Drag & drop files or folders here, or click to select</p>
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+        <h2 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-100">
+          Upload Files
+        </h2>
 
-
-      {files.length > 0 && (
-        <ul className="text-sm text-gray-600 mb-2">
-          {files.map((file, index) => (
-            <li key={index}>{file.name}</li>
-          ))}
-        </ul>
-      )}
-
-      {uploading && (
-        <div className="mb-2">
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              className="bg-blue-500 h-2.5 rounded-full"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-          <p className="text-xs text-gray-500">{progress}%</p>
+        {/* Drag & Drop Zone */}
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+          className="w-full mb-4 p-6 border-2 border-dashed border-gray-400 rounded text-center text-gray-600 hover:border-gray-600 cursor-pointer"
+        >
+          Drag & Drop files here, or click below to select
         </div>
-      )}
 
-      <button
-        onClick={handleUpload}
-        disabled={uploading}
-        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-      >
-        {uploading ? "Uploading..." : "Upload"}
-      </button>
+        {/* File Input */}
+        <input
+          type="file"
+          multiple
+          onChange={handleFileSelect}
+          className="w-full mb-4 text-gray-600"
+        />
+
+        {/* File Preview */}
+        {filesManager.length > 0 && (
+          <div className="mb-4 max-h-40 overflow-y-auto border border-gray-200 rounded p-2">
+            {filesManager.map((file, idx) => (
+              <div key={idx} className="flex items-center justify-between mb-1">
+                <span className="text-gray-700 dark:text-gray-200">{file.name}</span>
+                <button
+                  onClick={() => handleRemoveFile(idx)}
+                  className="text-red-500 hover:text-red-700 text-sm"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => {
+              setFilesManager([]);
+              onCancel();
+            }}
+            className="hover:bg-gray-400 hover:text-black text-black dark:text-white px-4 py-2 rounded shadow"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onUploadDone(filesManager);
+              setFilesManager([]);
+            }}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
+          >
+            Done
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
-
-export default FileUpload;
