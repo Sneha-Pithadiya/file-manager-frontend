@@ -5,13 +5,19 @@ import { getFileIcon } from "../helper/Fileicons";
 import { FaCross, FaDownload, FaEye, FaTrash } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
 import { FaEllipsis, FaXmark } from "react-icons/fa6";
-import { BiLeftArrow, BiLeftArrowCircle, BiRightArrow, BiRightArrowCircle } from "react-icons/bi";
+import {
+  BiLeftArrow,
+  BiLeftArrowCircle,
+  BiRightArrow,
+  BiRightArrowCircle,
+} from "react-icons/bi";
 
 export default function FileManager() {
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedFiles, setCopiedFiles] = useState([]);
 
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [currentLogs, setCurrentLogs] = useState([]);
@@ -28,15 +34,16 @@ export default function FileManager() {
   const [totalPages, setTotalPages] = useState(1);
   const [limit] = useState(100);
 
-
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    const parentPath = breadcrumb.map(b => b.name).join("/");
-    fetchFiles(parentPath);
-
+    if (!token) {
+      setMessage("You are not logged in");
+      return;
+    }
+    const folderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+    fetchFiles(folderId);
   }, [currentPage, breadcrumb]);
-
 
   const handleDownload = async (fileId, originalName) => {
     try {
@@ -61,8 +68,9 @@ export default function FileManager() {
   };
   const handleViewLogs = async (fileId, fileName) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`,
-        { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error("Failed to fetch logs");
 
       const data = await res.json();
@@ -74,8 +82,6 @@ export default function FileManager() {
       setMessage(err.message);
     }
   };
-
-
 
   const downloadLogs = async () => {
     if (!currentFileId) return;
@@ -132,7 +138,6 @@ export default function FileManager() {
       setMessage(`Folder "${data.name}" created successfully!`);
 
       fetchFiles(parentId);
-
     } catch (err) {
       setMessage(err.message || "Error creating folder");
     } finally {
@@ -156,31 +161,26 @@ export default function FileManager() {
   const formatDate = (dateStr) =>
     dateStr ? new Date(dateStr).toLocaleString() : "";
 
-
-
   const handleFileClick = (id) => {
     setIsClickFile(isClickFile === id ? null : id);
-  }
-  const fetchFiles = async (folderId = null) => {
+  };
+  const fetchFiles = async (folderId = 0) => {
     try {
-      const url = folderId
-        ? `http://127.0.0.1:8000/files/folder/${folderId}`
-        : `http://127.0.0.1:8000/files/folder/0`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const res = await fetch(
+        `http://127.0.0.1:8000/files/folder/${folderId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (!res.ok) throw new Error("Failed to fetch files");
-
       const data = await res.json();
       setFiles(data);
     } catch (err) {
       console.error(err);
-      setMessage("");
+      setMessage(err.message);
       setFiles([]);
     }
   };
-
 
   const handleFolderClick = (folderId, folderName) => {
     const newBreadcrumb = [...breadcrumb, { name: folderName, id: folderId }];
@@ -195,7 +195,6 @@ export default function FileManager() {
 
     fetchFiles(item.id);
   };
-
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
@@ -219,8 +218,12 @@ export default function FileManager() {
       setMessage("Files uploaded successfully!");
       setSelectedFiles([]);
 
-      const folderPath = breadcrumb.map((b) => b.name).join("/");
-      fetchFiles(folderPath);
+      const folderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+      fetchFiles(folderId); 
+      breadcrumb
+        .filter((b) => b.name)
+        .map((b) => b.name)
+        .join("/");
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -251,12 +254,66 @@ export default function FileManager() {
       setTimeout(() => setMessage(""), 3000);
     }
   };
+  const handleSelectFile = (file) => {
+    setSelectedFiles((prev) => {
+      const exists = prev.find((f) => f.id === file.id);
+      if (exists) {
+        return prev.filter((f) => f.id !== file.id);
+      } else {
+        return [...prev, file];
+      }
+    });
+  };
+  const handleCopy = () => {
+    if (selectedFiles.length === 0) {
+      setMessage("Select files/folders to copy!");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+    setCopiedFiles([...selectedFiles]);
+    setMessage(`${selectedFiles.length} item(s) copied!`);
+    setTimeout(() => setMessage(""), 3000);
+  };
+
+  const handlePaste = async () => {
+    if (copiedFiles.length === 0) return;
+
+    const destinationFolderId = breadcrumb[breadcrumb.length - 1]?.id || null;
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/files/copy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          file_ids: copiedFiles.map((f) => f.id),
+          destination_folder_id: destinationFolderId,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to paste");
+      }
+
+      const data = await res.json();
+      setMessage(`${data.copied_files.length} item(s) pasted!`);
+      setTimeout(() => setMessage(""), 3000);
+
+      fetchFiles(destinationFolderId);
+
+      setCopiedFiles([]);
+      setSelectedFiles([]);
+    } catch (err) {
+      setMessage(err.message);
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
 
   return (
     <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors">
-
-
-
       {/* Message */}
       {message && (
         <div className="mb-4 p-3 w-50 rounded border border-green-200 shadow text-white bg-white-500 dark:bg-white-600">
@@ -284,7 +341,39 @@ export default function FileManager() {
         data={breadcrumb}
         onBreadcrumbSelect={handleBreadcrumbSelect}
       />
+
       <div>
+        {selectedFiles.length > 0 && (
+          <div className="p-3 mb-5 bg-gray-100 dark:bg-gray-800 text-sm font-medium flex justify-between items-center">
+            {selectedFiles.length > 0 ? (
+              <span className="text-white">
+                {selectedFiles.filter((f) => f.is_folder).length} folder(s) and{" "}
+                {selectedFiles.filter((f) => !f.is_folder).length} file(s)
+                selected
+              </span>
+            ) : (
+              <span>No files selected</span>
+            )}
+            {selectedFiles.length > 0 && (
+              <button
+                onClick={handleCopy}
+                className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Copy
+              </button>
+            )}
+
+            {copiedFiles.length > 0 && (
+              <button
+                onClick={handlePaste}
+                className="ml-2 px-3 py-1 bg-green-200 dark:bg-green-700 rounded hover:bg-green-300 dark:hover:bg-green-600"
+              >
+                Paste Here
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Files Grid/List */}
         <div
           className={
@@ -300,95 +389,141 @@ export default function FileManager() {
           ) : (
             filteredFiles.map((file) =>
               viewType === "grid" ? (
-                <div key={file.id} className=" p-4 rounded  flex flex-col items-center text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                <div
+                  key={file.id}
+                  className={`relative p-4 rounded flex flex-col items-center text-center cursor-pointer 
+    hover:bg-gray-50 dark:hover:bg-gray-700
+    ${
+      selectedFiles.some((f) => f.id === file.id)
+        ? "bg-gray-100 dark:bg-gray-700"
+        : ""
+    }`}
+                >
+                  {/* Checkbox on hover */}
+                  <input
+                    type="checkbox"
+                    checked={selectedFiles.some((f) => f.id === file.id)}
+                    onChange={() => handleSelectFile(file)}
+                    className="absolute top-2 left-2 w-4 h-4 opacity-0 hover:opacity-100 transition-opacity"
+                  />
+
+                  {/* More icon */}
                   <div
                     className="text-white text-right flex justify-end ms-auto hover:bg-gray-800 rounded-2xl p-2"
                     onClick={() => handleFileClick(file.id)}
                   >
                     <FaEllipsis />
                   </div>
+
+                  {/* File Icon */}
                   <div className="mb-2">{getFileIcon(file, 40)}</div>
+
+                  {/* File Name */}
                   <p
                     className="text-gray-900 dark:text-gray-500 text-xs"
                     onClick={() =>
-                      file.is_folder && handleFolderClick(file.id, file.original_name)
+                      file.is_folder &&
+                      handleFolderClick(file.id, file.original_name)
                     }
                   >
                     {file.original_name}
                   </p>
+
+                  {/* File Actions Popup */}
                   {isClickFile === file.id && (
-                    <div className=" flex items-center justify-center relative z-50">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute   w-50 max-w-lg p-6 ">
-                        <div className="flex justify-between items-center mb-4 text-sm pb-2 text-end text-right">
-
-                          <button className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1 text-end" onClick={() => setIsClickFile(false)}><FaXmark /></button>
+                    <div className="flex items-center justify-center relative z-50">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute w-50 max-w-lg p-6">
+                        <div className="flex justify-end mb-4 text-sm pb-2">
+                          <button
+                            className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1"
+                            onClick={() => setIsClickFile(false)}
+                          >
+                            <FaXmark />
+                          </button>
                         </div>
-                        <div className="flex justify-between items-center mb-4 text-sm ">
-
+                        <div className="flex justify-between items-center mb-4 text-sm">
                           <button
                             onClick={() =>
                               handleDownload(file.id, file.original_name)
                             }
-                            className=" flex text-gray-500 hover:text-green-200"
+                            className="flex text-gray-500 hover:text-green-200"
                           >
                             <FaDownload className="mr-2" /> Download
                           </button>
                         </div>
                         <div className="flex justify-between items-center mb-4 text-sm">
-
                           <button
-                            onClick={() => handleViewLogs(file.id, file.original_name)}
-                            className=" flex text-gray-500 hover:text-blue-200"
+                            onClick={() =>
+                              handleViewLogs(file.id, file.original_name)
+                            }
+                            className="flex text-gray-500 hover:text-blue-200"
                           >
                             <FaEye className="mr-2" /> Details
                           </button>
                         </div>
-
                         <div className="flex justify-between items-center mb-4 text-sm">
-
                           <button
-                            onClick={() => handleDeleteFile(file.id, file.original_name)}
-                            className=" flex text-gray-500 hover:text-red-200"
+                            onClick={() =>
+                              handleDeleteFile(file.id, file.original_name)
+                            }
+                            className="flex text-gray-500 hover:text-red-200"
                           >
                             <FaTrash className="mr-2" /> Delete
                           </button>
                         </div>
-
-
-
                       </div>
-
                     </div>
-
                   )}
                 </div>
               ) : (
-                <tr key={file.id} className="border-b border-gray-700 py-3 w-full p-3">
-                  <td className="px-4 py-2"><input type="checkbox" className="appearance-none h-3 w-3 border border-gray-300 rounded checked:bg-blue-500 checked:border-blue-500" /></td>
-                  <td className="px-4 py-2 flex items-center gap-2 text-gray-800 dark:text-gray-500  cursor-pointer">
+                <tr
+                  key={file.id}
+                  className={`border-b border-gray-700 py-3 w-full p-3 
+    ${
+      selectedFiles.some((f) => f.id === file.id)
+        ? "bg-blue-100 dark:bg-gray-700"
+        : ""
+    }`}
+                >
+                  <td className="px-4 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedFiles.some((f) => f.id === file.id)}
+                      onChange={() => handleSelectFile(file)}
+                      className="appearance-none h-3 w-3 border border-gray-300 rounded checked:bg-blue-500 checked:border-blue-500"
+                    />
+                  </td>
+                  <td className="px-4 py-2 flex items-center gap-2 text-gray-800 dark:text-gray-500 cursor-pointer">
                     {getFileIcon(file, 20)}
                     <div
                       className="text-xs"
                       onClick={() =>
-                        file.is_folder && handleFolderClick(file.id, file.original_name)
+                        file.is_folder &&
+                        handleFolderClick(file.id, file.original_name)
                       }
                     >
                       {file.original_name}
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{file.uploaded_by}</td>
+                  <td className="px-4 py-2 text-gray-500">
+                    {file.uploaded_by}
+                  </td>
                   <td className="px-4 py-2">
                     <button
-                      onClick={() => handleDownload(file.id, file.original_name)}
-                      className="hover:text-green-400 text-gray-500 px-3 py-1 rounded "
+                      onClick={() =>
+                        handleDownload(file.id, file.original_name)
+                      }
+                      className="hover:text-green-400 text-gray-500 px-3 py-1 rounded"
                     >
                       <FaDownload />
                     </button>
                   </td>
                   <td className="px-4 py-2">
                     <button
-                      onClick={() => handleViewLogs(file.id, file.original_name)}
-                      className="hover:text-blue-400 text-gray-500 px-3 py-1 rounded "
+                      onClick={() =>
+                        handleViewLogs(file.id, file.original_name)
+                      }
+                      className="hover:text-blue-400 text-gray-500 px-3 py-1 rounded"
                     >
                       <FaEye />
                     </button>
@@ -398,8 +533,10 @@ export default function FileManager() {
             )
           )}
         </div>
+      </div>
 
-        {totalPages > 1 && (<div className="flex justify-center mt-4 gap-4 page-control">
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-4 gap-4 page-control">
           <button
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((prev) => prev - 1)}
@@ -407,7 +544,10 @@ export default function FileManager() {
           >
             <BiLeftArrowCircle />
           </button>
-          <span className="px-3 py-1 text-gray-300"> <span className="text-green-500">{currentPage}</span> / {totalPages}</span>
+          <span className="px-3 py-1 text-gray-300">
+            {" "}
+            <span className="text-green-500">{currentPage}</span> / {totalPages}
+          </span>
           <button
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage((prev) => prev + 1)}
@@ -415,9 +555,8 @@ export default function FileManager() {
           >
             <BiRightArrowCircle />
           </button>
-        </div>)}
-
-      </div>
+        </div>
+      )}
 
       {/* Log Modal */}
       {logModalOpen && (
@@ -433,7 +572,6 @@ export default function FileManager() {
               >
                 ×
               </button>
-
             </div>
 
             <div className="max-h-96 overflow-y-auto border-b  border-gray-500  pb-2  text-sm">
@@ -462,10 +600,8 @@ export default function FileManager() {
               </button>
             </div>
           </div>
-
         </div>
       )}
-
     </div>
   );
 }

@@ -9,10 +9,12 @@ import {
   FaUpload,
   FaSearch,
   FaCloudUploadAlt,
+  FaTrash,
 } from "react-icons/fa";
 
 export const FileManagerToolbar = ({
   files,
+  setFiles,
   onFileChange,
   onClearFileList,
   onUploadComplete,
@@ -39,6 +41,10 @@ export const FileManagerToolbar = ({
   const toggleActionVisiblity = () => {
     setIsVisibleAction(!isVisibleAction);
   };
+ const handleRemoveFile = (index) => {
+  const updatedFiles = files.filter((_, i) => i !== index);
+  onFileChange({ files: updatedFiles });
+};
 
   return (
     <div className="flex flex-wrap items-center gap-3 mx-0 mb-4 p-3 bg-white dark:bg-gray-800 shadow rounded">
@@ -57,10 +63,9 @@ export const FileManagerToolbar = ({
         >
           <FaPlus className="mr-2 mt-1" /> Create Folder
         </button>
-
         {/* Upload Button */}
         <button
-          onClick={() => setDialogVisible(!dialogVisible)}
+          onClick={() => setDialogVisible(true)}
           className="border border-gray-600 hover:bg-gray-700 bg-gray-500 text-white px-4 py-2 rounded shadow transition flex mx-2"
         >
           <FaCloudUploadAlt className="mr-2 mt-1" /> Upload
@@ -73,7 +78,6 @@ export const FileManagerToolbar = ({
                 Upload Files
               </h2>
 
-              {/* Drag & Drop Zone */}
               <div
                 className="w-full h-40 mb-4 flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                 onDragOver={(e) => {
@@ -84,7 +88,7 @@ export const FileManagerToolbar = ({
                   e.preventDefault();
                   e.stopPropagation();
                   const droppedFiles = Array.from(e.dataTransfer.files);
-                  onFileChange({ files: droppedFiles });
+                  onFileChange({ files: [...(files || []), ...droppedFiles] });
                 }}
                 onClick={() => document.getElementById("fileInput").click()}
               >
@@ -93,7 +97,6 @@ export const FileManagerToolbar = ({
                 </p>
               </div>
 
-              {/* Hidden File Input */}
               <input
                 id="fileInput"
                 type="file"
@@ -101,27 +104,42 @@ export const FileManagerToolbar = ({
                 className="hidden"
                 onChange={(e) => {
                   const selectedFiles = Array.from(e.target.files);
-                  onFileChange({ files: selectedFiles });
+                  onFileChange({ files: [...(files || []), ...selectedFiles] });
+                  e.target.value = "";
                 }}
               />
 
-              {/* Selected Files List */}
               {files && files.length > 0 && (
                 <div className="mb-4 max-h-40 overflow-y-auto border rounded p-2 bg-gray-50 dark:bg-gray-900">
                   <h3 className="font-semibold mb-2 text-gray-700 dark:text-gray-200">
                     Selected Files:
                   </h3>
-                  <ul className="list-disc list-inside text-gray-700 dark:text-gray-300">
-                    {files.map((file, idx) => (
-                      <li key={idx}>{file.name}</li>
-                    ))}
-                  </ul>
+                   <ul className="mt-3 space-y-2 text-sm text-gray-700">
+          {files.map((file, index) => (
+            <li
+              key={index}
+              className="flex items-center justify-between bg-white p-2 rounded shadow-sm"
+            >
+              <span className="truncate">{file.name}</span>
+              <button
+                onClick={() => handleRemoveFile(index)}
+                className="text-red-500 hover:text-red-700"
+                title="Remove file"
+              >
+                <FaTrash />
+              </button>
+            </li>
+          ))}
+        </ul>
                 </div>
               )}
 
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => setDialogVisible(false)}
+                  onClick={() => {
+                    onClearFileList?.();
+                    setDialogVisible(false);
+                  }}
                   className="hover:bg-gray-400 hover:text-black text-black dark:text-white px-4 py-2 rounded shadow"
                 >
                   Cancel
