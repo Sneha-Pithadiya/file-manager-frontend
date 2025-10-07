@@ -2,19 +2,22 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaCopy, FaCross, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaTrash } from "react-icons/fa";
+import { FaCross, FaDownload, FaEye, FaTrash } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
-import { FaEllipsis, FaTextSlash, FaXmark } from "react-icons/fa6";
-import { BiLeftArrow, BiLeftArrowCircle, BiRightArrow, BiRightArrowCircle } from "react-icons/bi";
+import { FaEllipsis, FaXmark } from "react-icons/fa6";
+import {
+  BiLeftArrow,
+  BiLeftArrowCircle,
+  BiRightArrow,
+  BiRightArrowCircle,
+} from "react-icons/bi";
 
 export default function FileManager() {
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [copiedFiles, setCopiedFiles] = useState([]);
-  const [cutFiles, setCutFiles] = useState([]);
-
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedFiles, setCopiedFiles] = useState([]);
 
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [currentLogs, setCurrentLogs] = useState([]);
@@ -30,17 +33,17 @@ export default function FileManager() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [limit] = useState(100);
-  const [showModal, setShowModal] = useState(false);
-  const [folderName, setFolderName] = useState("");
-
 
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    const lastId = breadcrumb[breadcrumb.length - 1]?.id || 0;
-    fetchFiles(lastId);
-  }, [breadcrumb, currentPage]);
-
+    if (!token) {
+      setMessage("You are not logged in");
+      return;
+    }
+    const folderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+    fetchFiles(folderId);
+  }, [currentPage, breadcrumb]);
 
   const handleDownload = async (fileId, originalName) => {
     try {
@@ -63,11 +66,11 @@ export default function FileManager() {
       setMessage(err.message);
     }
   };
-
   const handleViewLogs = async (fileId, fileName) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`,
-        { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error("Failed to fetch logs");
 
       const data = await res.json();
@@ -102,12 +105,10 @@ export default function FileManager() {
       alert(err.message);
     }
   };
-  const onNewFolderClick = () => {
-    setShowModal(true);
-  };
 
-  const handleCreateFolder = async () => {
-    if (!folderName.trim()) {
+  const handleNewFolderClick = async () => {
+    const folderName = prompt("Enter folder name:");
+    if (!folderName || folderName.trim() === "") {
       setMessage("Folder name cannot be empty!");
       setTimeout(() => setMessage(""), 3000);
       return;
@@ -135,126 +136,58 @@ export default function FileManager() {
       }
 
       setMessage(`Folder "${data.name}" created successfully!`);
+
       fetchFiles(parentId);
-      setShowModal(false);
-      setFolderName("");
     } catch (err) {
       setMessage(err.message || "Error creating folder");
     } finally {
       setTimeout(() => setMessage(""), 3000);
     }
   };
-
-
-  const handleNewFileClick = async () => {
-    const folderName = prompt("Enter file name with extention like (File.txt):");
-    if (!folderName || folderName.trim() === "") {
-      setMessage("Folder name cannot be empty!");
-      setTimeout(() => setMessage(""), 3000);
-      return;
-    }
-
-    try {
-      const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
-
-      const res = await fetch("http://127.0.0.1:8000/files/createfile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: folderName.trim(),
-          parent_id: parentId,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to create folder");
-      }
-
-      setMessage(`Folder "${data.name}" created successfully!`);
-
-      fetchFiles(parentId);
-
-    } catch (err) {
-      setMessage(err.message || "Error creating folder");
-    } finally {
-      setTimeout(() => setMessage(""), 3000);
-    }
-  };
-  const handleRename = async (fileId, originalName) => {
-    try {
-      const newName = prompt("Enter a new name:", originalName);
-      if (!newName || newName === originalName) return;
-
-      const response = await fetch(`http://localhost:8000/files/rename?file_id=${fileId}&new_name=${encodeURIComponent(newName)}`, {
-        method: "PUT",
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        alert(`Error: ${text}`);
-        return;
-      }
-
-      const data = await response.json();
-      alert(data.message);
-    } catch (error) {
-      console.error("Rename failed:", error);
-      alert("Rename failed. Check console for details.");
-    }
-  };
-
-  const queryStr = (searchQuery || "").toString().toLowerCase();
 
   const filteredFiles = files
     .filter((file) => file.original_name)
+
     .filter((file) =>
-      file.original_name.toLowerCase().includes(queryStr)
+      file.original_name.toLowerCase().includes(searchQuery.toLowerCase())
     )
+
     .sort((a, b) => {
-      if (sortOrder[0].dir === "asc") {
+      if (sortOrder[0].dir === "asc")
         return a.original_name.localeCompare(b.original_name);
-      }
       return b.original_name.localeCompare(a.original_name);
     });
-
 
   const formatDate = (dateStr) =>
     dateStr ? new Date(dateStr).toLocaleString() : "";
 
   const handleFileClick = (id) => {
     setIsClickFile(isClickFile === id ? null : id);
-  }
-
-  const fetchFiles = async (folderId = null) => {
+  };
+  const fetchFiles = async (folderId = 0) => {
     try {
-      const url = folderId
-        ? `http://127.0.0.1:8000/files/folder/${folderId}`
-        : `http://127.0.0.1:8000/files/folder/0`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const res = await fetch(
+        `http://127.0.0.1:8000/files/folder/${folderId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (!res.ok) throw new Error("Failed to fetch files");
-
       const data = await res.json();
       setFiles(data);
     } catch (err) {
       console.error(err);
-      setMessage("");
+      setMessage(err.message);
       setFiles([]);
     }
   };
 
-
   const handleFolderClick = (folderId, folderName) => {
-    setBreadcrumb((prev) => [...prev, { name: folderName, id: folderId }]);
-  };
+    const newBreadcrumb = [...breadcrumb, { name: folderName, id: folderId }];
+    setBreadcrumb(newBreadcrumb);
 
+    fetchFiles(folderId);
+  };
 
   const handleBreadcrumbSelect = (item, index) => {
     const newBreadcrumb = breadcrumb.slice(0, index + 1);
@@ -262,7 +195,6 @@ export default function FileManager() {
 
     fetchFiles(item.id);
   };
-
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
@@ -286,8 +218,12 @@ export default function FileManager() {
       setMessage("Files uploaded successfully!");
       setSelectedFiles([]);
 
-      const folderPath = breadcrumb.map((b) => b.name).join("/");
-      fetchFiles(folderPath);
+      const folderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+      fetchFiles(folderId);
+      breadcrumb
+        .filter((b) => b.name)
+        .map((b) => b.name)
+        .join("/");
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -318,7 +254,6 @@ export default function FileManager() {
       setTimeout(() => setMessage(""), 3000);
     }
   };
-
   const handleSelectFile = (file) => {
     setSelectedFiles((prev) => {
       const exists = prev.find((f) => f.id === file.id);
@@ -329,7 +264,6 @@ export default function FileManager() {
       }
     });
   };
-
   const handleCopy = () => {
     if (selectedFiles.length === 0) {
       setMessage("Select files/folders to copy!");
@@ -340,60 +274,37 @@ export default function FileManager() {
     setMessage(`${selectedFiles.length} item(s) copied!`);
     setTimeout(() => setMessage(""), 3000);
   };
-  const handleCut = () => {
-    if (selectedFiles.length === 0) {
-      setMessage("Select files/folders to cut!");
-      setTimeout(() => setMessage(""), 3000);
-      return;
-    }
-
-    setCutFiles([...selectedFiles]);
-    setCopiedFiles([]);
-    setMessage(`${selectedFiles.length} item(s) cut!`);
-    setTimeout(() => setMessage(""), 3000);
-  };
 
   const handlePaste = async () => {
-    if (copiedFiles.length === 0 && cutFiles.length === 0) return;
+    if (copiedFiles.length === 0) return;
 
     const destinationFolderId = breadcrumb[breadcrumb.length - 1]?.id || null;
 
-    const isCut = cutFiles.length > 0;
-    const targetFiles = isCut ? cutFiles : copiedFiles;
-
     try {
-      const endpoint = isCut
-        ? "http://127.0.0.1:8000/files/move"
-        : "http://127.0.0.1:8000/files/copy";
-
-      const res = await fetch(endpoint, {
+      const res = await fetch("http://127.0.0.1:8000/files/copy", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
-          file_ids: targetFiles.map((f) => f.id),
+          file_ids: copiedFiles.map((f) => f.id),
           destination_folder_id: destinationFolderId,
         }),
       });
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail || `Failed to ${isCut ? "move" : "copy"} files`);
+        throw new Error(err.detail || "Failed to paste");
       }
 
       const data = await res.json();
-      setMessage(
-        `${isCut ? data.moved_files.length : data.copied_files.length} item(s) ${isCut ? "moved" : "pasted"
-        }!`
-      );
+      setMessage(`${data.copied_files.length} item(s) pasted!`);
       setTimeout(() => setMessage(""), 3000);
 
       fetchFiles(destinationFolderId);
 
       setCopiedFiles([]);
-      setCutFiles([]);
       setSelectedFiles([]);
     } catch (err) {
       setMessage(err.message);
@@ -401,11 +312,14 @@ export default function FileManager() {
     }
   };
 
-
   return (
     <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors">
       {/* Message */}
-
+      {message && (
+        <div className="mb-4 p-3 w-50 rounded border border-green-200 shadow text-white bg-white-500 dark:bg-white-600">
+          {message}
+        </div>
+      )}
 
       {/* Toolbar */}
       <FileManagerToolbar
@@ -413,8 +327,7 @@ export default function FileManager() {
         onFileChange={({ files }) => setSelectedFiles(Array.from(files))}
         onClearFileList={() => setSelectedFiles([])}
         onUploadComplete={handleUpload}
-        onNewFileClick={handleNewFileClick}
-        onNewFolderClick={onNewFolderClick}
+        onNewFolderClick={handleNewFolderClick}
         onViewChange={({ view }) => setViewType(view)}
         onSortChange={({ direction }) => setSortOrder([{ dir: direction }])}
         onSearchChange={setSearchQuery}
@@ -441,33 +354,23 @@ export default function FileManager() {
             ) : (
               <span>No files selected</span>
             )}
-            <div className="flex">
-              {selectedFiles.length > 0 && (
+            {selectedFiles.length > 0 && (
+              <button
+                onClick={handleCopy}
+                className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Copy
+              </button>
+            )}
 
-                <div>  <button
-                  onClick={handleCut}
-                  className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
-                >
-                  <FaCut />
-                </button>
-                  <button
-                    onClick={handleCopy}
-                    className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
-                  >
-                    <FaCopy />
-                  </button></div>
-              )}
-
-              {(cutFiles.length > 0 || copiedFiles.length > 0) && (
-                <button
-                  onClick={handlePaste}
-                  className="ml-2 px-3 py-1 bg-green-200 dark:bg-green-700 rounded hover:bg-green-300 dark:hover:bg-green-600 text-gray-200"
-                >
-                  <FaPaste />
-                </button>
-              )}
-            </div>
-
+            {copiedFiles.length > 0 && (
+              <button
+                onClick={handlePaste}
+                className="ml-2 px-3 py-1 bg-green-200 dark:bg-green-700 rounded hover:bg-green-300 dark:hover:bg-green-600"
+              >
+                Paste Here
+              </button>
+            )}
           </div>
         )}
 
@@ -489,8 +392,8 @@ export default function FileManager() {
                 <div
                   key={file.id}
                   className={`relative p-4 rounded flex flex-col items-center text-center cursor-pointer 
-       hover:bg-gray-50 dark:hover:bg-gray-700
-       ${selectedFiles.some((f) => f.id === file.id)
+    hover:bg-gray-50 dark:hover:bg-gray-700
+    ${selectedFiles.some((f) => f.id === file.id)
                       ? "bg-gray-100 dark:bg-gray-700"
                       : ""
                     }`}
@@ -550,16 +453,6 @@ export default function FileManager() {
                         <div className="flex justify-between items-center mb-4 text-sm">
                           <button
                             onClick={() =>
-                              handleRename(file.id, file.original_name)
-                            }
-                            className="flex text-gray-500 hover:text-pink-200"
-                          >
-                            <FaEdit className="mr-2" /> Rename
-                          </button>
-                        </div>
-                        <div className="flex justify-between items-center mb-4 text-sm">
-                          <button
-                            onClick={() =>
                               handleViewLogs(file.id, file.original_name)
                             }
                             className="flex text-gray-500 hover:text-blue-200"
@@ -577,8 +470,6 @@ export default function FileManager() {
                             <FaTrash className="mr-2" /> Delete
                           </button>
                         </div>
-
-
                       </div>
                     </div>
                   )}
@@ -587,7 +478,7 @@ export default function FileManager() {
                 <tr
                   key={file.id}
                   className={`border-b border-gray-700 py-3 w-full p-3 
-       ${selectedFiles.some((f) => f.id === file.id)
+    ${selectedFiles.some((f) => f.id === file.id)
                       ? "bg-blue-100 dark:bg-gray-700"
                       : ""
                     }`}
@@ -609,7 +500,7 @@ export default function FileManager() {
                         handleFolderClick(file.id, file.original_name)
                       }
                     >
-                      {file.original_name} {file.size}
+                      {file.original_name}
                     </div>
                   </td>
                   <td className="px-4 py-2 text-gray-500">
@@ -620,7 +511,7 @@ export default function FileManager() {
                       onClick={() =>
                         handleDownload(file.id, file.original_name)
                       }
-                      className="hover:text-green-400 text-gray-500 rounded"
+                      className="hover:text-green-400 text-gray-500 px-3 py-1 rounded"
                     >
                       <FaDownload />
                     </button>
@@ -630,19 +521,9 @@ export default function FileManager() {
                       onClick={() =>
                         handleViewLogs(file.id, file.original_name)
                       }
-                      className="hover:text-blue-400 text-gray-500  rounded"
+                      className="hover:text-blue-400 text-gray-500 px-3 py-1 rounded"
                     >
                       <FaEye />
-                    </button>
-                  </td>
-                  <td className="px-4 py-2">
-                    <button
-                      onClick={() =>
-                        handleDeleteFile(file.id, file.original_name)
-                      }
-                      className="flex text-gray-500 hover:text-red-200"
-                    >
-                      <FaTrash className="mr-2" />
                     </button>
                   </td>
                 </tr>
@@ -719,43 +600,38 @@ export default function FileManager() {
           </div>
         </div>
       )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
-          <div className="bg-gray-800 rounded-lg p-6 w-80 shadow-lg">
-            <h3 className="text-lg font-semibold mb-4 text-gray-300">Create New Folder</h3>
-            <input
-              type="text"
-              value={folderName}
-              onChange={(e) => setFolderName(e.target.value)}
-              placeholder="Enter folder name"
-              className="w-full border text-white border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={handleCreateFolder}
-                className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-              >
-                Done
-              </button>
-              <button
-                onClick={() => { setShowModal(false); setFolderName(""); }}
-                className="bg-gray-300 text-gray-700 p-2 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {message && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg text-white shadow-lg w-full max-w-lg p-6 relative">
-            {message}
-          </div>
-        </div>
-
-      )}
     </div>
   );
 }
+
+import { useState, useEffect } from "react";
+
+export const ProgressBar = ({ initial = 0, speed = 500 }) => {
+  const [progress, setProgress] = useState(initial);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 1;
+      });
+    }, speed);
+    return () => clearInterval(interval);
+  }, [speed]);
+
+  return (
+    <div className="w-full bg-gray-200 mt-2 rounded-full dark:bg-gray-700">
+      {progress !== 100 && (<div
+        className="bg-green-800 text-xs font-medium text-green-100 text-center p-0.5 leading-none rounded"
+        style={{ width: `${progress}%` }}
+      >
+        {progress}%
+      </div>)}
+
+
+    </div>
+  );
+};

@@ -10,7 +10,7 @@ export const BreadcrumbComponent = ({ data = [], onBreadcrumbSelect }) => {
       aria-label="Breadcrumb"
     >
       {allCrumbs.map((item, index) => (
-        <div key={item.id} className="flex items-center">
+        <div key={item.path} className="flex items-center">
           <button
             onClick={() => onBreadcrumbSelect(item, index)}
             className="hover:underline focus:outline-none"
