@@ -23,7 +23,7 @@ export default function CreateDropdown({ onNewFolderClick, onNewFileClick }) {
         onClick={() => setOpen(!open)}
         className="flex items-center px-4 py-2 bg-purple-500 border border-purple-500 text-white rounded shadow hover:bg-purple-600 transition"
       >
-        <FaPlus className="mr-2" /> Create
+        <FaPlus className="mr-2" /> New
       </button>
 
       {open && (

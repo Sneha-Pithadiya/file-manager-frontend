@@ -2,7 +2,7 @@ import React from "react";
 
 export const BreadcrumbComponent = ({ data = [], onBreadcrumbSelect }) => {
   // Always prepend "Upload" breadcrumb
-  const allCrumbs = [{ id: "0", name: "Upload" }, ...data];
+  const allCrumbs = [{ id: "0", name: "Upload" }, ...data.filter(item => item.name)];
 
   return (
     <nav
@@ -10,7 +10,7 @@ export const BreadcrumbComponent = ({ data = [], onBreadcrumbSelect }) => {
       aria-label="Breadcrumb"
     >
       {allCrumbs.map((item, index) => (
-        <div key={item.path} className="flex items-center">
+        <div key={item.id} className="flex items-center">
           <button
             onClick={() => onBreadcrumbSelect(item, index)}
             className="hover:underline focus:outline-none"

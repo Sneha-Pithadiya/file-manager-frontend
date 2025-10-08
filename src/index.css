@@ -10,3 +10,33 @@
       box-shadow: 0 -2px 5px rgba(0,0,0,0.1); /* Optional shadow */
       z-index: 1000; /* Ensure it stays above other content */
     }
+    .star-border {
+  /* Set the interior fill of the SVG to transparent */
+  fill: transparent;
+  
+  /* Set the color of the star's border (stroke) */
+  stroke: rgb(218, 226, 96); /* Or any color you prefer */
+  
+  /* Set the thickness of the border */
+  stroke-width: 10; /* Adjust this value as needed */
+  
+  /* Optional: Adjust size and alignment */
+  font-size: 15px;
+}
+
+.star-border-click{
+   
+  /* Set the interior fill of the SVG to transparent */
+  fill: white;
+  
+  /* Set the color of the star's border (stroke) */
+  stroke: rgb(218, 226, 96); /* Or any color you prefer */
+  
+  /* Set the thickness of the border */
+  stroke-width: 10; /* Adjust this value as needed */
+  
+  /* Optional: Adjust size and alignment */
+  font-size: 15px;
+}
+
+

@@ -44,13 +44,13 @@ export const FileManagerToolbar = ({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3 p-3 bg-white dark:bg-gray-800 shadow rounded mb-4">
+    <div className="flex flex-wrap items-center gap-3 p-3 bg-white dark:bg-gray-800 shadow rounded  border-gray-500 mb-4">
       {/* Search Input */}
       <FaSearch className="text-gray-400" />
       <input
         type="text"
-        placeholder="Search files, folders, or path (e.g., n/m/4)..."
-        className="w-1/3 py-1 px-3 rounded focus:outline-none dark:text-gray-100"
+        placeholder="Search files, folders ..."
+        className="w-1/3 py-1 px-3 rounded focus:outline-none dark:text-gray-100 "
         onChange={(e) => handleSearch(e.target.value)}
       />
 

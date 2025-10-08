@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaCopy, FaCross, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaTrash } from "react-icons/fa";
+import { FaCopy, FaCross, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaStarAndCrescent, FaTrash } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
 import { FaEllipsis, FaTextSlash, FaXmark } from "react-icons/fa6";
 import { BiLeftArrow, BiLeftArrowCircle, BiRightArrow, BiRightArrowCircle } from "react-icons/bi";
@@ -32,6 +32,8 @@ export default function FileManager() {
   const [limit] = useState(100);
   const [showModal, setShowModal] = useState(false);
   const [folderName, setFolderName] = useState("");
+  const [isStar, setIsStar] = useState(false);
+
 
 
   const token = localStorage.getItem("token");
@@ -60,7 +62,7 @@ export default function FileManager() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setMessage(err.message);
+      setTimeout(() => setMessage(""), 2000);;
     }
   };
 
@@ -109,7 +111,7 @@ export default function FileManager() {
   const handleCreateFolder = async () => {
     if (!folderName.trim()) {
       setMessage("Folder name cannot be empty!");
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
@@ -141,7 +143,7 @@ export default function FileManager() {
     } catch (err) {
       setMessage(err.message || "Error creating folder");
     } finally {
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
     }
   };
 
@@ -150,7 +152,7 @@ export default function FileManager() {
     const folderName = prompt("Enter file name with extention like (File.txt):");
     if (!folderName || folderName.trim() === "") {
       setMessage("Folder name cannot be empty!");
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
@@ -182,9 +184,10 @@ export default function FileManager() {
     } catch (err) {
       setMessage(err.message || "Error creating folder");
     } finally {
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
     }
   };
+
   const handleRename = async (fileId, originalName) => {
     try {
       const newName = prompt("Enter a new name:", originalName);
@@ -192,6 +195,10 @@ export default function FileManager() {
 
       const response = await fetch(`http://localhost:8000/files/rename?file_id=${fileId}&new_name=${encodeURIComponent(newName)}`, {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -211,15 +218,15 @@ export default function FileManager() {
   const queryStr = (searchQuery || "").toString().toLowerCase();
 
   const filteredFiles = files
-    .filter((file) => file.original_name)
+    .filter((file) => file.display_name)
     .filter((file) =>
-      file.original_name.toLowerCase().includes(queryStr)
+      file.display_name.toLowerCase().includes(queryStr)
     )
     .sort((a, b) => {
       if (sortOrder[0].dir === "asc") {
-        return a.original_name.localeCompare(b.original_name);
+        return a.display_name.localeCompare(b.display_name);
       }
-      return b.original_name.localeCompare(a.original_name);
+      return b.display_name.localeCompare(a.display_name);
     });
 
 
@@ -242,7 +249,16 @@ export default function FileManager() {
       if (!res.ok) throw new Error("Failed to fetch files");
 
       const data = await res.json();
-      setFiles(data);
+      const updatedData = data.map(file => {
+        const name = file.original_name || ""; // fallback
+        const isFolder = file.is_folder;
+
+        return {
+          ...file,
+          display_name: isFolder ? name : name.replace(/\.[^/.]+$/, ""),
+        };
+      });
+      setFiles(updatedData);
     } catch (err) {
       console.error(err);
       setMessage("");
@@ -262,7 +278,6 @@ export default function FileManager() {
 
     fetchFiles(item.id);
   };
-
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
@@ -292,7 +307,7 @@ export default function FileManager() {
       setMessage(err.message);
     } finally {
       setLoading(false);
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
     }
   };
 
@@ -315,7 +330,7 @@ export default function FileManager() {
     } catch (err) {
       setMessage(err.message);
     } finally {
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
     }
   };
 
@@ -333,24 +348,25 @@ export default function FileManager() {
   const handleCopy = () => {
     if (selectedFiles.length === 0) {
       setMessage("Select files/folders to copy!");
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
     setCopiedFiles([...selectedFiles]);
     setMessage(`${selectedFiles.length} item(s) copied!`);
-    setTimeout(() => setMessage(""), 3000);
+    setTimeout(() => setMessage(""), 2000);
   };
+
   const handleCut = () => {
     if (selectedFiles.length === 0) {
       setMessage("Select files/folders to cut!");
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
       return;
     }
 
     setCutFiles([...selectedFiles]);
     setCopiedFiles([]);
     setMessage(`${selectedFiles.length} item(s) cut!`);
-    setTimeout(() => setMessage(""), 3000);
+    setTimeout(() => setMessage(""), 2000);
   };
 
   const handlePaste = async () => {
@@ -388,7 +404,7 @@ export default function FileManager() {
         `${isCut ? data.moved_files.length : data.copied_files.length} item(s) ${isCut ? "moved" : "pasted"
         }!`
       );
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
 
       fetchFiles(destinationFolderId);
 
@@ -397,14 +413,42 @@ export default function FileManager() {
       setSelectedFiles([]);
     } catch (err) {
       setMessage(err.message);
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setMessage(""), 2000);
     }
   };
 
+  const handleClose = () => {
+    setSelectedFiles([]);
+  }
+
+ const handleStar = async (fileId) => {
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/files/star?file_id=${fileId}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) throw new Error("Failed to star file");
+
+    const data = await res.json();
+    console.log(data.message);
+
+    setFiles(prevFiles =>
+      prevFiles.map(f =>
+        f.id === fileId ? { ...f, is_star: data.is_star } : f
+      )
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   return (
-    <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors">
-      {/* Message */}
+    <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors  ">
 
 
       {/* Toolbar */}
@@ -444,28 +488,32 @@ export default function FileManager() {
             <div className="flex">
               {selectedFiles.length > 0 && (
 
-                <div>  <button
-                  onClick={handleCut}
-                  className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
-                >
-                  <FaCut />
-                </button>
+                <div>
+                  <button
+                    onClick={handleCut}
+                    className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
+                  >
+                    <FaCut />
+                  </button>
                   <button
                     onClick={handleCopy}
                     className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
                   >
                     <FaCopy />
-                  </button></div>
+                  </button>
+                </div>
               )}
 
               {(cutFiles.length > 0 || copiedFiles.length > 0) && (
                 <button
                   onClick={handlePaste}
-                  className="ml-2 px-3 py-1 bg-green-200 dark:bg-green-700 rounded hover:bg-green-300 dark:hover:bg-green-600 text-gray-200"
+                  className="ml-4 px-3  bg-green-200 dark:bg-green-700 rounded hover:bg-green-300 dark:hover:bg-green-600 text-gray-200"
                 >
                   <FaPaste />
                 </button>
               )}
+              <button className="ml-4 bg-gray-700 text-red-200 px-3  rounded" onClick={handleClose}>X</button>
+
             </div>
 
           </div>
@@ -481,10 +529,11 @@ export default function FileManager() {
         >
           {filteredFiles.length === 0 ? (
             <p className="text-center p-4 text-gray-500 dark:text-gray-300">
-              No files or folders uploaded yet.
+              File / Folder Not Found !
             </p>
           ) : (
             filteredFiles.map((file) =>
+
               viewType === "grid" ? (
                 <div
                   key={file.id}
@@ -514,16 +563,27 @@ export default function FileManager() {
                   {/* File Icon */}
                   <div className="mb-2">{getFileIcon(file, 40)}</div>
 
-                  {/* File Name */}
-                  <p
-                    className="text-gray-900 dark:text-gray-500 text-xs"
-                    onClick={() =>
-                      file.is_folder &&
-                      handleFolderClick(file.id, file.original_name)
-                    }
-                  >
-                    {file.original_name}
-                  </p>
+               <div key={file.id} className="flex items-center justify-between text-xs mb-2">
+  {/* File name */}
+  <span
+    className="text-gray-900 dark:text-gray-500 cursor-pointer"
+    onClick={() =>
+      file.is_folder && handleFolderClick(file.id, file.display_name)
+    }
+  >
+    {file.display_name}
+  </span>
+
+  {/* Star button */}
+  <button onClick={() => handleStar(file.id)}>
+    <FaStar
+      className={`ml-2 cursor-pointer transition-colors duration-200 ${
+        file.is_star ? "text-yellow-500" : "text-white"
+      }`}
+    />
+  </button>
+</div>
+
 
                   {/* File Actions Popup */}
                   {isClickFile === file.id && (
@@ -540,7 +600,7 @@ export default function FileManager() {
                         <div className="flex justify-between items-center mb-4 text-sm">
                           <button
                             onClick={() =>
-                              handleDownload(file.id, file.original_name)
+                              handleDownload(file.id, file.display_name)
                             }
                             className="flex text-gray-500 hover:text-green-200"
                           >
@@ -560,7 +620,7 @@ export default function FileManager() {
                         <div className="flex justify-between items-center mb-4 text-sm">
                           <button
                             onClick={() =>
-                              handleViewLogs(file.id, file.original_name)
+                              handleViewLogs(file.id, file.display_name)
                             }
                             className="flex text-gray-500 hover:text-blue-200"
                           >
@@ -570,7 +630,7 @@ export default function FileManager() {
                         <div className="flex justify-between items-center mb-4 text-sm">
                           <button
                             onClick={() =>
-                              handleDeleteFile(file.id, file.original_name)
+                              handleDeleteFile(file.id, file.display_name)
                             }
                             className="flex text-gray-500 hover:text-red-200"
                           >
@@ -597,7 +657,7 @@ export default function FileManager() {
                       type="checkbox"
                       checked={selectedFiles.some((f) => f.id === file.id)}
                       onChange={() => handleSelectFile(file)}
-                      className="appearance-none h-3 w-3 border border-gray-300 rounded checked:bg-blue-500 checked:border-blue-500"
+                      className="appearance-none text-xs h-3 w-3 border border-gray-300 rounded checked:bg-blue-500 checked:border-blue-500"
                     />
                   </td>
                   <td className="px-4 py-2 flex items-center gap-2 text-gray-800 dark:text-gray-500 cursor-pointer">
@@ -606,10 +666,12 @@ export default function FileManager() {
                       className="text-xs"
                       onClick={() =>
                         file.is_folder &&
-                        handleFolderClick(file.id, file.original_name)
+                        handleFolderClick(file.id, file.display_name)
                       }
                     >
-                      {file.original_name} {file.size}
+                      {file.display_name} {file.size} <button onClick={() => handleStar(file.id)}>
+                        <FaStar className={`ml-2 cursor-pointer ${file.is_star ? "text-white" : "text-yellow-500"}`} />
+                      </button>
                     </div>
                   </td>
                   <td className="px-4 py-2 text-gray-500">
@@ -618,9 +680,9 @@ export default function FileManager() {
                   <td className="px-4 py-2">
                     <button
                       onClick={() =>
-                        handleDownload(file.id, file.original_name)
+                        handleDownload(file.id, file.display_name)
                       }
-                      className="hover:text-green-400 text-gray-500 rounded"
+                      className="hover:text-green-400 text-gray-500 rounded text-xs"
                     >
                       <FaDownload />
                     </button>
@@ -628,9 +690,9 @@ export default function FileManager() {
                   <td className="px-4 py-2">
                     <button
                       onClick={() =>
-                        handleViewLogs(file.id, file.original_name)
+                        handleViewLogs(file.id, file.display_name)
                       }
-                      className="hover:text-blue-400 text-gray-500  rounded"
+                      className="hover:text-blue-400 text-gray-500 text-xs rounded"
                     >
                       <FaEye />
                     </button>
@@ -638,13 +700,22 @@ export default function FileManager() {
                   <td className="px-4 py-2">
                     <button
                       onClick={() =>
-                        handleDeleteFile(file.id, file.original_name)
+                        handleDeleteFile(file.id, file.display_name)
                       }
-                      className="flex text-gray-500 hover:text-red-200"
+                      className="flex text-gray-500 hover:text-red-200 text-xs"
                     >
                       <FaTrash className="mr-2" />
                     </button>
                   </td>
+                  <td className="
+                  px-4 py-2"> <button
+                      onClick={() =>
+                        handleRename(file.id, file.original_name)
+                      }
+                      className="flex text-gray-500 hover:text-pink-200"
+                    >
+                      <FaEdit className="mr-2" />
+                    </button></td>
                 </tr>
               )
             )
