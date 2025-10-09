@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaCopy, FaCross, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaStarAndCrescent, FaTrash } from "react-icons/fa";
+import { FaAudioDescription, FaCopy, FaCross, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaStarAndCrescent, FaTrash, FaWrench } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
 import { FaEllipsis, FaTextSlash, FaXmark } from "react-icons/fa6";
 import { BiLeftArrow, BiLeftArrowCircle, BiRightArrow, BiRightArrowCircle } from "react-icons/bi";
@@ -17,7 +17,9 @@ export default function FileManager() {
   const [loading, setLoading] = useState(false);
 
   const [logModalOpen, setLogModalOpen] = useState(false);
+  const [properitesModalOpen, setProperitesModalOpen] = useState(false);
   const [currentLogs, setCurrentLogs] = useState([]);
+  const [currentProperties, setCurrentProperties] = useState([]);
   const [currentFileName, setCurrentFileName] = useState("");
   const [currentFileId, setCurrentFileId] = useState(null);
 
@@ -65,6 +67,21 @@ export default function FileManager() {
       setTimeout(() => setMessage(""), 2000);;
     }
   };
+  const handleViewProperties = async (fileId) => {
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/files/properties?file_id=${fileId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error("Failed to fetch properties");
+      const data = await res.json();
+      setCurrentProperties([data]);
+      setProperitesModalOpen(true);
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
 
   const handleViewLogs = async (fileId, fileName) => {
     try {
@@ -250,7 +267,7 @@ export default function FileManager() {
 
       const data = await res.json();
       const updatedData = data.map(file => {
-        const name = file.original_name || ""; // fallback
+        const name = file.original_name || "";  
         const isFolder = file.is_folder;
 
         return {
@@ -368,81 +385,104 @@ export default function FileManager() {
     setMessage(`${selectedFiles.length} item(s) cut!`);
     setTimeout(() => setMessage(""), 2000);
   };
+const showMessage = (msg) => {
+  setMessage(msg);
+  setTimeout(() => setMessage(""), 2000);
+};
 
   const handlePaste = async () => {
-    if (copiedFiles.length === 0 && cutFiles.length === 0) return;
+  if (copiedFiles.length === 0 && cutFiles.length === 0) return;
 
-    const destinationFolderId = breadcrumb[breadcrumb.length - 1]?.id || null;
+  const destinationFolderId = breadcrumb[breadcrumb.length - 1]?.id || null;
+  const isCut = cutFiles.length > 0;
+  const targetFiles = isCut ? cutFiles : copiedFiles;
 
-    const isCut = cutFiles.length > 0;
-    const targetFiles = isCut ? cutFiles : copiedFiles;
+  try {
+    const endpoint = isCut
+      ? "http://127.0.0.1:8000/files/move"
+      : "http://127.0.0.1:8000/files/copy";
 
-    try {
-      const endpoint = isCut
-        ? "http://127.0.0.1:8000/files/move"
-        : "http://127.0.0.1:8000/files/copy";
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+      body: JSON.stringify({
+        file_ids: targetFiles.map(f => f.id),
+        destination_folder_id: destinationFolderId,
+      }),
+    });
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          file_ids: targetFiles.map((f) => f.id),
-          destination_folder_id: destinationFolderId,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || `Failed to ${isCut ? "move" : "copy"} files`);
-      }
-
-      const data = await res.json();
-      setMessage(
-        `${isCut ? data.moved_files.length : data.copied_files.length} item(s) ${isCut ? "moved" : "pasted"
-        }!`
-      );
-      setTimeout(() => setMessage(""), 2000);
-
-      fetchFiles(destinationFolderId);
-
-      setCopiedFiles([]);
-      setCutFiles([]);
-      setSelectedFiles([]);
-    } catch (err) {
-      setMessage(err.message);
-      setTimeout(() => setMessage(""), 2000);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `Failed to ${isCut ? "move" : "copy"} files`);
     }
-  };
+
+    const data = await res.json();
+    const count = isCut ? data.moved_files.length : data.copied_files.length;
+    showMessage(`${count} item(s) ${isCut ? "moved" : "pasted"}!`);
+
+    fetchFiles(destinationFolderId);
+
+    setCopiedFiles([]);
+    setCutFiles([]);
+    setSelectedFiles([]);
+  } catch (err) {
+    showMessage(err.message);
+  }
+};
+
 
   const handleClose = () => {
     setSelectedFiles([]);
   }
 
- const handleStar = async (fileId) => {
+  // const handleStar = async (fileId) => {
+  //   try {
+  //     const res = await fetch(`http://127.0.0.1:8000/files/star?file_id=${fileId}`, {
+  //       method: "PUT",
+  //       headers: {
+  //         "Authorization": `Bearer ${token}`,
+  //         "Content-Type": "application/json",
+  //       },
+  //     });
+
+  //     if (!res.ok) throw new Error("Failed to star file");
+
+  //     const data = await res.json();
+  //     console.log(data.message);
+
+  //     setFiles(prevFiles =>
+  //       prevFiles.map(f =>
+  //         f.id === fileId ? { ...f, is_star: data.is_star } : f
+  //       )
+  //     );
+  //   } catch (err) {
+  //     console.error(err);
+  //   }
+  // };
+
+
+const handleToggleStar = async (fileId) => {
   try {
     const res = await fetch(`http://127.0.0.1:8000/files/star?file_id=${fileId}`, {
       method: "PUT",
       headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
     });
 
-    if (!res.ok) throw new Error("Failed to star file");
-
     const data = await res.json();
-    console.log(data.message);
+    console.log("Star API response:", data);
 
-    setFiles(prevFiles =>
-      prevFiles.map(f =>
-        f.id === fileId ? { ...f, is_star: data.is_star } : f
-      )
+    if (!res.ok || !data.id) throw new Error("Invalid response from server");
+
+    setFiles(prev =>
+      prev.map(f => f.id === fileId ? { ...f, is_star: data.is_star } : f)
     );
   } catch (err) {
-    console.error(err);
+    console.error("Star toggle error:", err);
   }
 };
 
@@ -523,8 +563,8 @@ export default function FileManager() {
         <div
           className={
             viewType === "grid"
-              ? "grid grid-cols-10 gap-3"
-              : "overflow-x-auto bg-white dark:bg-gray-800 shadow-md rounded-lg"
+              ? "grid grid-cols-7 gap-2"
+              : "overflow-x-auto bg-white dark:bg-gray-800 shadow-md rounded-lg p-2"
           }
         >
           {filteredFiles.length === 0 ? (
@@ -537,7 +577,7 @@ export default function FileManager() {
               viewType === "grid" ? (
                 <div
                   key={file.id}
-                  className={`relative p-4 rounded flex flex-col items-center text-center cursor-pointer 
+                  className={`relative p-2 rounded flex flex-col items-center   text-center cursor-pointer 
        hover:bg-gray-50 dark:hover:bg-gray-700
        ${selectedFiles.some((f) => f.id === file.id)
                       ? "bg-gray-100 dark:bg-gray-700"
@@ -561,28 +601,21 @@ export default function FileManager() {
                   </div>
 
                   {/* File Icon */}
-                  <div className="mb-2">{getFileIcon(file, 40)}</div>
+                  <div className="mb-2">{getFileIcon(file, 50)}</div>
 
-               <div key={file.id} className="flex items-center justify-between text-xs mb-2">
-  {/* File name */}
-  <span
-    className="text-gray-900 dark:text-gray-500 cursor-pointer"
-    onClick={() =>
-      file.is_folder && handleFolderClick(file.id, file.display_name)
-    }
-  >
-    {file.display_name}
-  </span>
+                  <div key={file.id} className="  text-xs mb-2">
+                    {/* File name */}
+                    <p
+                      className="text-gray-900 dark:text-gray-500 cursor-pointer whitespace-normal text-xs w-40 break-words"
+                      onClick={() =>
+                        file.is_folder && handleFolderClick(file.id, file.display_name)
+                      }
+                    >
+                      {file.display_name}
+                    </p>
 
-  {/* Star button */}
-  <button onClick={() => handleStar(file.id)}>
-    <FaStar
-      className={`ml-2 cursor-pointer transition-colors duration-200 ${
-        file.is_star ? "text-yellow-500" : "text-white"
-      }`}
-    />
-  </button>
-</div>
+
+                  </div>
 
 
                   {/* File Actions Popup */}
@@ -637,8 +670,29 @@ export default function FileManager() {
                             <FaTrash className="mr-2" /> Delete
                           </button>
                         </div>
+                        <div className="flex justify-between items-center mb-4 text-sm">
+                          <button
+  onClick={() => handleToggleStar(file.id)}
+  className={`text-sm flex items-center ${
+    file.is_star ? "text-yellow-400" : "text-gray-400"
+  }`}
+>
+  <FaStar className="mr-2" />
+  {file.is_star ? "Unstar" : "Star"}
+</button>
+
+                        </div>
+
+                        <div className="flex justify-between items-center mb-4 text-sm">
+                          <button
+                            onClick={() => handleViewProperties(file.id)}
+                            className="flex text-gray-500 hover:text-red-200"
+                          >
+                            <FaWrench className="mr-2 mt-1" /> Properties
+                          </button>
 
 
+                        </div>
                       </div>
                     </div>
                   )}
@@ -669,9 +723,10 @@ export default function FileManager() {
                         handleFolderClick(file.id, file.display_name)
                       }
                     >
-                      {file.display_name} {file.size} <button onClick={() => handleStar(file.id)}>
+                      {file.display_name} {file.size}
+                      {/* <button onClick={() => handleStar(file.id)}>
                         <FaStar className={`ml-2 cursor-pointer ${file.is_star ? "text-white" : "text-yellow-500"}`} />
-                      </button>
+                      </button> */}
                     </div>
                   </td>
                   <td className="px-4 py-2 text-gray-500">
@@ -790,7 +845,63 @@ export default function FileManager() {
           </div>
         </div>
       )}
+      {properitesModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+            <div className="flex justify-between items-center mb-4 border-b border-gray-500 pb-3">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 ">
+              </h2>
+              <button
+                onClick={() => setProperitesModalOpen(false)}
+                className="text-red-500   px-1 font-bold text-xl hover:text-red-700 dark:hover:text-red-400 transition"
+              >
+                ×
+              </button>
+            </div>
 
+            <div className="max-h-96 overflow-y-auto border-b  border-gray-500  pb-2  text-sm">
+
+              {currentProperties.length > 0 ? (
+                currentProperties.map((prop, index) => (
+                  <div
+                    key={index}
+                    className="text-gray-400"
+                  >
+                    <div className="flex border-b border-gray-500 last:border-b-0 text-gray-700 dark:text-gray-200 pb-3">
+                      {getFileIcon(prop, 20)}  <p className="ml-2  px-2    w-100 "> {prop.name}</p>
+                    </div>
+                    <div className="flex border-b border-gray-500 last:border-b-0  ">
+                      <p className=" py-2   w-100 "> <span className="mr-3">Type Of file:</span>  {prop.type}</p>
+                    </div>
+                    <div className="flex  ">
+                      <p className=" py-2   w-100 "> <span className="mr-3">Size:</span>{prop.size}</p>
+                    </div>
+                    <div className="flex border-b border-gray-500 last:border-b-0  ">
+                      <p className=" pb-2 w-100 "> <span className="mr-3">Location:</span>{prop.absolute_path}</p>
+                    </div>
+                    <div className="flex   ">
+                      <p className=" py-2   w-100 "> <span className="mr-3">Created: </span>{prop.created_at}</p>
+                    </div>
+                    <div className="flex   ">
+                      <p className="   w-100 "> <span className="mr-3">Modified: </span>{prop.modified_at}</p>
+                    </div>
+                    <div className="flex border-b border-gray-500 last:border-b-0  ">
+                      <p className=" py-2   w-100 "> <span className="mr-3">Accessed: </span>{prop.accessed_at}</p>
+                    </div>
+
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 dark:text-gray-300 text-center py-4">
+                  No logs found.
+                </p>
+              )}
+            </div>
+
+
+          </div>
+        </div>
+      )}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-gray-800 rounded-lg p-6 w-80 shadow-lg">

@@ -5,7 +5,8 @@ import { FaFileWord, FaFileExcel, FaFolder, FaFile, FaFilePowerpoint, FaFilePdf,
 
 export const getFileIcon = (file, size = 40) => {
   // if (file.is_folder ) return <MdFolder size={size} color="#fbbf24" />; 
-  const ext = file.original_name.split(".").pop().toLowerCase();
+  const filename = file.original_name   || file.name || "";
+  const ext = filename.split(".").pop().toLowerCase();
   if (file.is_folder ) {
     switch (ext){
       case "zip":
