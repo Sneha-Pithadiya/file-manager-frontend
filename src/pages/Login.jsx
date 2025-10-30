@@ -12,33 +12,36 @@ export default function Login() {
 
   const navigate = useNavigate(); 
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+ const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      const res = await fetch("http://127.0.0.1:8000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+  try {
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("password", password);
 
-      const data = await res.json();
+    const res = await fetch("http://127.0.0.1:8000/auth/login", {
+      method: "POST",
+      body: formData, // send as FormData
+    });
 
-      if (!res.ok) throw new Error(data.detail || "Login failed");
+    const data = await res.json();
 
-      setMessage("Login successful!");
-      localStorage.setItem("token", data.access_token);
-      setUsername("");
-      setPassword("");
+    if (!res.ok) throw new Error(data.detail || "Login failed");
 
-      navigate("/files");
-    } catch (err) {
-      setMessage(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setMessage("Login successful!");
+    localStorage.setItem("token", data.access_token);
+    setUsername("");
+    setPassword("");
+    navigate("/files");
+  } catch (err) {
+    setMessage(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors">

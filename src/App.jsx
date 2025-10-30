@@ -7,6 +7,7 @@ import Register from "./pages/Register";
 import FileManager from "./pages/FileManager";
 
 function App() {
+  
   return (
    <Router>
       <Routes>
