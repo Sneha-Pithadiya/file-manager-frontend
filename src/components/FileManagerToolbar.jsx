@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CreateDropdown from "./CreateDropDown";
 import {
   FaArrowUp,
@@ -22,37 +22,75 @@ export const FileManagerToolbar = ({
   onViewChange,
   onSortChange,
   onSearchChange,
+  apiUrl, // pass your backend API base URL here
   sort = [{ dir: "asc" }],
 }) => {
   const [dialogVisible, setDialogVisible] = useState(false);
   const [view, setView] = useState("grid");
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const searchTimeout = useRef(null);
 
+  // Remove a selected file
   const handleRemoveFile = (index) => {
     const updatedFiles = files.filter((_, i) => i !== index);
     onFileChange({ files: updatedFiles });
   };
 
+  // Search function with API call and debounce
   const handleSearch = (query) => {
-    // Always pass string to prevent .toLowerCase() errors
     const sanitizedQuery = query.trim();
-    onSearchChange(sanitizedQuery);
+
+    // Clear previous timeout
+    // if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (searchTimeout.current){
+      clearTimeout(searchTimeout.current);}
+
+
+    searchTimeout.current = setTimeout(async () => {
+      if (!sanitizedQuery) {
+        setSearchResults([]);
+        onSearchChange("");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/files/search/${encodeURIComponent(query)}`);
+
+        const data = await response.json();
+        setSearchResults(data.results || []);
+        onSearchChange(sanitizedQuery); 
+      } catch (err) {
+        console.error("Search API error:", err);
+        setSearchResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300); // 300ms debounce
   };
 
+  // Handle upload completion
   const handleUploadDone = () => {
     setDialogVisible(false);
     onUploadComplete?.();
   };
 
+  // Determine which list to show: search results or uploaded files
+  const displayedFiles = searchResults.length > 0 ? searchResults : files;
+
   return (
-    <div className="flex flex-wrap items-center gap-3 p-3 bg-white dark:bg-gray-800 shadow rounded  border-gray-500 mb-4">
+    <div className="flex flex-wrap items-center gap-3 p-3 bg-white dark:bg-gray-800 shadow rounded border-gray-500 mb-4">
       {/* Search Input */}
       <FaSearch className="text-gray-400" />
       <input
         type="text"
         placeholder="Search files, folders ..."
-        className="w-1/3 py-1 px-3 rounded focus:outline-none dark:text-gray-100 "
+        className="w-1/3 py-1 px-3 rounded focus:outline-none dark:text-gray-100"
         onChange={(e) => handleSearch(e.target.value)}
       />
+        
+      {loading && <span className="ml-2 text-gray-500">Searching...</span>}
 
       {/* Toolbar Actions */}
       <div className="flex ml-auto items-center gap-2">
@@ -92,7 +130,9 @@ export const FileManagerToolbar = ({
                 <FaCloudUploadAlt className="text-gray-500 text-7xl" />
                 <p className="pt-3 text-gray-500 dark:text-gray-400">
                   Drag & Drop or{" "}
-                  <span className="text-gray-700 dark:text-gray-200">choose file</span>{" "}
+                  <span className="text-gray-700 dark:text-gray-200">
+                    choose file
+                  </span>{" "}
                   to upload
                 </p>
               </div>
@@ -110,31 +150,29 @@ export const FileManagerToolbar = ({
               />
 
               {/* Selected Files */}
-              {files?.length > 0 && (
+              {displayedFiles?.length > 0 && (
                 <div className="p-2 mb-4 bg-gray-50 dark:bg-gray-900 border rounded max-h-40 overflow-y-auto">
                   <h3 className="mb-2 font-semibold text-gray-700 dark:text-gray-200">
-                    Selected Files:
+                    Files:
                   </h3>
                   <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                    {files.map((file, index) => (
-                       <div className="bg-gray-800 text-gray-200 rounded shadow-sm p-2">
-                         <li
-                        key={index}
-                        className="flex items-center justify-between  "
+                    {displayedFiles.map((file, index) => (
+                      <div
+                        key={file.id || index}
+                        className="bg-gray-800 text-gray-200 rounded shadow-sm p-2"
                       >
-                        <span className="truncate">{file.name}</span>
-                        <button
-                          onClick={() => handleRemoveFile(index)}
-                          className="text-red-500 hover:text-red-700"
-                          title="Remove file"
-                        >
-                          <FaTrash />
-                        </button>
-                       
-                      </li>
-                       <ProgressBar initial={0} speed={100 } className />
-
-                       </div>
+                        <li className="flex items-center justify-between">
+                          <span className="truncate">{file.path || file.name}</span>
+                          <button
+                            onClick={() => handleRemoveFile(index)}
+                            className="text-red-500 hover:text-red-700"
+                            title="Remove file"
+                          >
+                            <FaTrash />
+                          </button>
+                        </li>
+                        <ProgressBar initial={0} speed={100} />
+                      </div>
                     ))}
                   </ul>
                 </div>
@@ -208,7 +246,6 @@ export const FileManagerToolbar = ({
           </button>
         </div>
       </div>
-      
     </div>
   );
 };
