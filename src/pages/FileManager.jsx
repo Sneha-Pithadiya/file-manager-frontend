@@ -67,6 +67,7 @@ export default function FileManager() {
    setTimeout(() => setMessage(""), 2000);;
   }
  };
+
  const handleViewProperties = async (fileId) => {
   try {
    const res = await fetch(
@@ -121,6 +122,7 @@ export default function FileManager() {
    alert(err.message);
   }
  };
+ 
  const onNewFolderClick = () => {
   setShowModal(true);
  };
@@ -304,7 +306,6 @@ export default function FileManager() {
    setFiles([]);
   }
  };
-
 
  const handleFolderClick = (folderId, folderName) => {
   setBreadcrumb((prev) => [...prev, { name: folderName, id: folderId }]);
@@ -520,7 +521,7 @@ const handleToggleStar = async (fileId) => {
             onChange={(e) => setIsGlobalSearch(e.target.checked)}
             className="hidden"
           />
-          <div className={`w-10 h-6 flex items-center rounded-full p-1 transition duration-200 ${isGlobalSearch ? 'bg-blue-500' : 'bg-gray-400'}`}>
+          <div className={`w-14 h-6 flex items-center rounded-full p-1 transition duration-200 ${isGlobalSearch ? 'bg-blue-500' : 'bg-gray-400'}`}>
             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${isGlobalSearch ? 'translate-x-4' : 'translate-x-0'}`}></div>
           </div>
           <span className="ml-3 text-white text-sm font-medium">
