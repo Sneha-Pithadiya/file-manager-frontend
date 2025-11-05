@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaAudioDescription, FaCopy, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaTrash, FaWrench } from "react-icons/fa";
+import { FaAudioDescription, FaCopy, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaTrash, FaWrench, FaUndo, FaTrashAlt } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
 import { FaEllipsis, FaXmark } from "react-icons/fa6";
 import { BiLeftArrowCircle, BiRightArrowCircle } from "react-icons/bi";
@@ -86,19 +86,23 @@ export default function FileManager() {
 
  const handleViewLogs = async (fileId, fileName) => {
   try {
-   const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`,
-    { headers: { Authorization: `Bearer ${token}` } });
-   if (!res.ok) throw new Error("Failed to fetch logs");
+    const res = await fetch(`http://127.0.0.1:8000/files/log/${fileId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-   const data = await res.json();
-   setCurrentLogs(data.logs || []);
-   setCurrentFileName(fileName);
-   setCurrentFileId(fileId);
-   setLogModalOpen(true);
+    const data = res.ok ? await res.json() : { logs: [] };
+
+    setCurrentLogs(data.logs || []);
   } catch (err) {
-   setMessage(err.message);
+    setCurrentLogs([]);
+  } finally {
+    setCurrentFileName(fileName);
+    setCurrentFileId(fileId);
+    setLogModalOpen(true);
   }
- };
+};
+
+
 
  const downloadLogs = async () => {
   if (!currentFileId) return;
@@ -631,83 +635,106 @@ const handleToggleStar = async (fileId) => {
          </div>
 
 
-         {isClickFile === file.id && (
-          <div className="flex items-center justify-center relative z-50">
-           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute w-50 max-w-lg p-6">
-            <div className="flex justify-end mb-4 text-sm pb-2">
-             <button
-              className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1"
-              onClick={() => setIsClickFile(false)}
-             >
-              <FaXmark />
-             </button>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm">
-             <button
-              onClick={() =>
-               handleDownload(file.id, file.display_name)
-              }
+        {isClickFile === file.id && (
+  <div className="flex items-center justify-center relative z-50">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute w-50 max-w-lg p-6">
+      <div className="flex justify-end mb-4 text-sm pb-2">
+        <button
+          className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1"
+          onClick={() => setIsClickFile(false)}
+        >
+          <FaXmark />
+        </button>
+      </div>
+
+      {/* 🧠 Conditional check for RecycleBin */}
+      {file.display_name?.toLowerCase() === "recyclebin" ? (
+        <>
+          {/* ✅ Restore button */}
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handleRestore(file.id)}
+              className="flex text-gray-500 hover:text-green-300"
+            >
+              <FaUndo className="mr-2" /> Restore
+            </button>
+          </div>
+
+          {/* ❌ Permanent Delete button */}
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handlePermanentDelete(file.id)}
+              className="flex text-gray-500 hover:text-red-300"
+            >
+              <FaTrashAlt className="mr-2" /> Permanent Delete
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Normal options for other files */}
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handleDownload(file.id, file.display_name)}
               className="flex text-gray-500 hover:text-green-200"
-             >
+            >
               <FaDownload className="mr-2" /> Download
-             </button>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm">
-             <button
-              onClick={() =>
-               handleRename(file.id, file.original_name)
-              }
+            </button>
+          </div>
+
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handleRename(file.id, file.original_name)}
               className="flex text-gray-500 hover:text-pink-200"
-             >
+            >
               <FaEdit className="mr-2" /> Rename
-             </button>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm">
-             <button
-              onClick={() =>
-               handleViewLogs(file.id, file.display_name)
-              }
+            </button>
+          </div>
+
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handleViewLogs(file.id, file.display_name)}
               className="flex text-gray-500 hover:text-blue-200"
-             >
+            >
               <FaEye className="mr-2" /> Details
-             </button>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm">
-             <button
-              onClick={() =>
-               handleDeleteFile(file.id, file.display_name)
-              }
+            </button>
+          </div>
+
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handleDeleteFile(file.id, file.display_name)}
               className="flex text-gray-500 hover:text-red-200"
-             >
+            >
               <FaTrash className="mr-2" /> Delete
-             </button>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm">
-             <button
- onClick={() => handleToggleStar(file.id)}
- className={`text-sm flex items-center ${
-  file.is_star ? "text-yellow-400" : "text-gray-400"
- }`}
->
- <FaStar className="mr-2" />
- {file.is_star ? "Unstar" : "Star"}
-</button>
+            </button>
+          </div>
 
-            </div>
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
+              onClick={() => handleToggleStar(file.id)}
+              className={`text-sm flex items-center ${
+                file.is_star ? "text-yellow-400" : "text-gray-400"
+              }`}
+            >
+              <FaStar className="mr-2" />
+              {file.is_star ? "Unstar" : "Star"}
+            </button>
+          </div>
 
-            <div className="flex justify-between items-center mb-4 text-sm">
-             <button
+          <div className="flex justify-between items-center mb-4 text-sm">
+            <button
               onClick={() => handleViewProperties(file.id)}
               className="flex text-gray-500 hover:text-red-200"
-             >
+            >
               <FaWrench className="mr-2 mt-1" /> Properties
-             </button>
-
-
-            </div>
-           </div>
+            </button>
           </div>
-         )}
+        </>
+      )}
+    </div>
+  </div>
+)}
+
         </div>
        ) : (
         <tr
@@ -811,48 +838,53 @@ const handleToggleStar = async (fileId) => {
    )}
 
    {logModalOpen && (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+      {/* Header */}
       <div className="flex justify-between items-center mb-4 border-b border-gray-500 pb-3">
-       <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 ">
-        {currentFileName} - Logs
-       </h2>
-       <button
-        onClick={() => setLogModalOpen(false)}
-        className="text-red-500  px-1 font-bold text-xl hover:text-red-700 dark:hover:text-red-400 transition"
-       >
-        ×
-       </button>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+          {currentFileName} - Logs
+        </h2>
+        <button
+          onClick={() => setLogModalOpen(false)}
+          className="text-red-500 px-1 font-bold text-xl hover:text-red-700 dark:hover:text-red-400 transition"
+        >
+          ×
+        </button>
       </div>
 
+      {/* Body */}
       <div className="max-h-96 overflow-y-auto border-b border-gray-500 pb-2 text-sm">
-       {currentLogs.length > 0 ? (
-        currentLogs.map((log, index) => (
-         <div
-          key={index}
-          className="p-2 border-b last:border-b-0 text-gray-700 dark:text-gray-200"
-         >
-          {log}
-         </div>
-        ))
-       ) : (
-        <p className="text-gray-500 dark:text-gray-300 text-center py-4">
-         No logs found.
-        </p>
-       )}
+        {currentLogs.length > 0 ? (
+          currentLogs.map((log, index) => (
+            <div
+              key={index}
+              className="p-2 border-b last:border-b-0 text-gray-700 dark:text-gray-200"
+            >
+              {log}
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-500 dark:text-gray-300 text-center py-4">
+            No logs found.
+          </p>
+        )}
       </div>
 
+      {/* Footer */}
       <div className="mt-4 flex justify-end gap-3">
-       <button
-        onClick={downloadLogs}
-        className="bg-green-500 flex hover:bg-green-600 text-white px-4 py-2 rounded shadow transition"
-       >
-        <FaDownload className="mr-2 mt-1" /> Log File
-       </button>
+        <button
+          onClick={downloadLogs}
+          className="bg-green-500 flex hover:bg-green-600 text-white px-4 py-2 rounded shadow transition"
+        >
+          <FaDownload className="mr-2 mt-1" /> Log File
+        </button>
       </div>
-     </div>
     </div>
-   )}
+  </div>
+)}
+
+
    {properitesModalOpen && (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg p-6 relative">
