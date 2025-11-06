@@ -8,6 +8,7 @@ import {
   FaSearch,
   FaCloudUploadAlt,
   FaTrash,
+  FaRecycle,
 } from "react-icons/fa";
 import { ProgressBar } from "./ProgressBar";
 
@@ -22,7 +23,7 @@ export const FileManagerToolbar = ({
   onViewChange,
   onSortChange,
   onSearchChange,
-  apiUrl, // pass your backend API base URL here
+  viewRecycleBin,
   sort = [{ dir: "asc" }],
 }) => {
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -31,18 +32,14 @@ export const FileManagerToolbar = ({
   const [loading, setLoading] = useState(false);
   const searchTimeout = useRef(null);
 
-  // Remove a selected file
   const handleRemoveFile = (index) => {
     const updatedFiles = files.filter((_, i) => i !== index);
     onFileChange({ files: updatedFiles });
   };
 
-  // Search function with API call and debounce
   const handleSearch = (query) => {
     const sanitizedQuery = query.trim();
 
-    // Clear previous timeout
-    // if (searchTimeout.current) clearTimeout(searchTimeout.current);
     if (searchTimeout.current){
       clearTimeout(searchTimeout.current);}
 
@@ -67,21 +64,19 @@ export const FileManagerToolbar = ({
       } finally {
         setLoading(false);
       }
-    }, 300); // 300ms debounce
+    }, 300); 
   };
 
-  // Handle upload completion
   const handleUploadDone = () => {
     setDialogVisible(false);
     onUploadComplete?.();
   };
 
-  // Determine which list to show: search results or uploaded files
+  
   const displayedFiles = searchResults.length > 0 ? searchResults : files;
 
   return (
     <div className="flex flex-wrap items-center gap-3 p-3 bg-white dark:bg-gray-800 shadow rounded border-gray-500 mb-4">
-      {/* Search Input */}
       <FaSearch className="text-gray-400" />
       <input
         type="text"
@@ -92,23 +87,21 @@ export const FileManagerToolbar = ({
         
       {loading && <span className="ml-2 text-gray-500">Searching...</span>}
 
-      {/* Toolbar Actions */}
       <div className="flex ml-auto items-center gap-2">
-        {/* Create Dropdown */}
         <CreateDropdown
           onNewFolderClick={onNewFolderClick}
           onNewFileClick={onNewFileClick}
         />
 
-        {/* Upload Button */}
         <button
           onClick={() => setDialogVisible(true)}
           className="flex items-center px-4 py-2 bg-gray-500 border border-gray-600 text-white rounded shadow hover:bg-gray-700 transition"
         >
           <FaCloudUploadAlt className="mr-2" /> Upload
         </button>
-
-        {/* Upload Dialog */}
+        <button onClick={viewRecycleBin} className="flex items-center px-2 py-3 bg-red-500 border border-red-600 text-white rounded shadow hover:bg-gray-700 transition" >
+          <FaRecycle  /> 
+        </button>
         {dialogVisible && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div className="w-full max-w-lg p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg relative">
@@ -116,7 +109,6 @@ export const FileManagerToolbar = ({
                 Upload Files
               </h2>
 
-              {/* Drag & Drop Area */}
               <div
                 className="w-full h-40 mb-4 flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                 onDragOver={(e) => e.preventDefault()}
@@ -149,7 +141,6 @@ export const FileManagerToolbar = ({
                 }}
               />
 
-              {/* Selected Files */}
               {displayedFiles?.length > 0 && (
                 <div className="p-2 mb-4 bg-gray-50 dark:bg-gray-900 border rounded max-h-40 overflow-y-auto">
                   <h3 className="mb-2 font-semibold text-gray-700 dark:text-gray-200">
@@ -178,7 +169,6 @@ export const FileManagerToolbar = ({
                 </div>
               )}
 
-              {/* Dialog Actions */}
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => {
@@ -200,7 +190,6 @@ export const FileManagerToolbar = ({
           </div>
         )}
 
-        {/* Sorting */}
         <div className="flex gap-2">
           <button
             className={`px-3 py-2 rounded shadow ${
@@ -220,7 +209,6 @@ export const FileManagerToolbar = ({
           </button>
         </div>
 
-        {/* View Toggle */}
         <div className="flex gap-2 ml-4">
           <button
             className={`px-3 py-3 rounded shadow ${
