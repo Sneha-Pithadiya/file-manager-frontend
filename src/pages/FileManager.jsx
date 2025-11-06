@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaAudioDescription, FaCopy, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaTrash, FaWrench, FaUndo, FaTrashAlt } from "react-icons/fa";
+import { FaAudioDescription, FaCopy, FaCut, FaDownload, FaEdit, FaEye, FaPaste, FaStar, FaTrash, FaWrench, FaUndo, FaTrashAlt, FaPlus } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
 import { FaEllipsis, FaXmark, FaExclamation, FaTriangleExclamation } from "react-icons/fa6";
 import { BiLeftArrowCircle, BiRightArrowCircle } from "react-icons/bi";
@@ -589,12 +589,22 @@ export default function FileManager() {
           }
         >
           {filteredFiles.length === 0 ? (
-            <p className="flex justify-center items-center flex-col text-center p-4 text-gray-500 dark:text-gray-300 h-100 text-2xl">
-              <div className="mb-5">
+            <div className="flex gap-5 justify-center items-center flex-col text-center p-4 text-gray-500 dark:text-gray-300 h-100 text-2xl">
+              <div>
                 <FaTriangleExclamation size={"48"}/>
               </div>
               Empty Folder
-            </p>
+              <div className="flex gap-2">
+                <button className="flex items-center px-4 py-2 bg-purple-500 border border-purple-500 text-white rounded shadow hover:bg-purple-600 transition">
+                  <FaPlus className="inline mr-2 font-normal" />
+                  Folder
+                </button>
+                <button className="flex items-center px-4 py-2 bg-green-500 border border-green-500 text-white rounded shadow hover:bg-green-600 transition">
+                  <FaPlus className="inline mr-2 font-normal"/>
+                  File
+                </button>
+              </div>
+            </div>
           ) : (
             filteredFiles.map((file) =>
 
