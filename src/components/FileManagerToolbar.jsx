@@ -28,8 +28,8 @@ export const FileManagerToolbar = ({
  onSortChange,
  onSearchChange,
  viewRecycleBin,
- isGlobalSearch, // ⬅️ NEW PROP
- setIsGlobalSearch, // ⬅️ NEW PROP
+ isGlobalSearch, 
+ setIsGlobalSearch, 
  sort = [{ dir: "asc" }],
 }) => {
  const [dialogVisible, setDialogVisible] = useState(false);

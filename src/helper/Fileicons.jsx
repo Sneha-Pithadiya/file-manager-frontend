@@ -5,7 +5,7 @@ import { FaFileWord, FaFileExcel, FaFolder, FaFile, FaFilePowerpoint, FaFilePdf,
 
 export const getFileIcon = (file, size = 10) => {
   // if (file.is_folder ) return <MdFolder size={size} color="#fbbf24" />; 
-  const filename = file.original_name   || file.name || "";
+  const filename = file.filename   || file.name || "";
   const ext = filename.split(".").pop().toLowerCase();
   if (file.is_folder ) {
     switch (ext){

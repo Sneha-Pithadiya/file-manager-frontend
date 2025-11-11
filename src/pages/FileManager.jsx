@@ -41,7 +41,7 @@ export default function FileManager() {
   const [showFileModal, setShowFileModal] = useState(false);
   const [fileName, setFileName] = useState("");
   const [showRenameModal, setShowRenameModal] = useState(false);
-const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newName: '' });  
+const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newName: '' }); 
 
   const token = localStorage.getItem("token");
 
@@ -176,38 +176,41 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
 
 
   const handleCreateFile = async () => {
-    if (!fileName.trim()) return alert("File name is required");
+  if (!fileName.trim()) return alert("File name is required");
 
-    const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
+  const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
 
-    try {
-      const res = await fetch(`http://127.0.0.1:8000/files/createfile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: fileName.trim(),
-          parent_id: parentId, // <-- important
-        }),
-      });
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/files/createfile`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        name: fileName.trim(),
+        parent_id: parentId,
+      }),
+    });
 
-      if (!res.ok) throw new Error("Failed to create file");
+    if (!res.ok) throw new Error("Failed to create file");
 
-      const newFile = await res.json();
-      setFiles((prev) => [...prev, newFile]); 
-      setShowFileModal(false);
-      setFileName("");
-    } catch (err) {
-      console.error(err.message);
-      setMessage(err.message);
-      setTimeout(() => setMessage(""), 2000);
-    }
-  };
+    const folderPath = parentId;
+    await fetchFiles(folderPath);
+
+    setShowFileModal(false);
+    setFileName("");
+
+  } catch (err) {
+    console.error(err.message);
+    setMessage(err.message);
+    setTimeout(() => setMessage(""), 2000);
+  }
+};
+
 
   const openRenameModal = (fileId, currentFilename) => {
-    setFileToRename({ id: fileId, fileName: currentFilename, newName: fileName });
+    setFileToRename({ id: fileId, fileName: currentFilename, newName: currentFilename });
     setShowRenameModal(true);
     setIsClickFile(null); 
   };
@@ -243,6 +246,7 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
     } finally {
       setShowRenameModal(false);
       setFileToRename({ id: null, fileName: '', newName: '' });
+      console.log("Rename modal closed", fileToRename);
     }
   };
 
@@ -366,9 +370,16 @@ const fetchFiles = async (folderId = null) => {
     }
   };
 
-  const handleDeleteFile = async (fileId) => {
+  const handleDeleteFile = async (fileId=null) => {
+    
+    if (selectedFiles.length === 0) {
+      setMessage("Select files/folders to delete!");
+      setTimeout(() => setMessage(""), 2000);
+      return;
+    }
     try {
-      const res = await fetch(`http://127.0.0.1:8000/files/delete/${fileId}`, {
+      for (const file of selectedFiles) {
+      const res = await fetch(`http://127.0.0.1:8000/files/delete/${file.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -377,7 +388,7 @@ const fetchFiles = async (folderId = null) => {
         const errorData = await res.json();
         throw new Error(errorData.detail || "Failed to delete file");
       }
-
+    }
       setMessage("File deleted successfully");
 
       const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
@@ -388,6 +399,35 @@ const fetchFiles = async (folderId = null) => {
       setTimeout(() => setMessage(""), 2000);
     }
   };
+const handleSingleDeleteFile = async (fileId = null) => {
+  try {
+    
+
+      const res = await fetch(`http://127.0.0.1:8000/files/delete/${fileId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || `Failed to delete file: ${file.filename}`);
+      }
+    
+
+    // After deletion
+    setMessage(
+      
+       "File deleted successfully"
+    );
+
+    const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
+    fetchFiles(folderPath);
+  } catch (err) {
+    setMessage(err.message);
+  } finally {
+    setTimeout(() => setMessage(""), 2000);
+  }
+};
 
   const handleSelectFile = (file) => {
     setSelectedFiles((prev) => {
@@ -472,7 +512,6 @@ const fetchFiles = async (folderId = null) => {
     }
   };
 
-
   const handleClose = () => {
     setSelectedFiles([]);
   }
@@ -509,7 +548,12 @@ const fetchFiles = async (folderId = null) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to fetch recycle bin items");
 
-      const items = Array.isArray(data.results) ? data.results : data;
+      const items = Array.isArray(data.results)
+  ? data.results
+  : Array.isArray(data)
+    ? data
+    : [];
+
 
       setFiles(items);
 
@@ -551,7 +595,7 @@ const handleRestoreFile = async (fileId) => {
       throw new Error(errorData.detail || "Failed to restore file");
     }
     setMessage("File restored successfully");
-    const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
+    const folderPath = breadcrumb[breadcrumb.length - 2]?.id;
     fetchFiles(folderPath);
   } catch (err) {
     setMessage(err.message);
@@ -559,6 +603,62 @@ const handleRestoreFile = async (fileId) => {
     setTimeout(() => setMessage(""), 2000);
   }
 };
+const handleMultipleRestoreFile = async () => {
+  if (selectedFiles.length === 0) {
+      setMessage("Select files/folders to Restore !");  
+      setTimeout(() => setMessage(""), 2000);
+      return;
+    }
+    try {
+      for (const file of selectedFiles) {
+      const res = await fetch(`http://127.0.0.1:8000/files/restore/${file.id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {  
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to Restore  file");
+      }
+    }
+    setMessage("Files/ Folders Restored");
+    
+    setSelectedFiles([]);
+    } catch (err) {
+      setMessage(err.message);
+    }finally{
+      setTimeout(() => setMessage(""), 2000);
+      setSelectedFiles([]);
+
+    } 
+};
+const handleMultiplePermanentDelete = async () => {
+    if (selectedFiles.length === 0) {
+      setMessage("Select files/folders to permanently delete!");  
+      setTimeout(() => setMessage(""), 2000);
+      return;
+    } 
+    try {
+      for (const file of selectedFiles) {
+      const res = await fetch(`http://127.0.0.1:8000/files/permenent_delete/${file.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {  
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to permanently delete file");
+      }
+    }
+    setMessage("Files/ Folders Permanently deleted");
+    const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
+    fetchFiles(folderPath);
+    setSelectedFiles([]);
+    } catch (err) {
+      setMessage(err.message);
+    }finally{
+      setTimeout(() => setMessage(""), 2000);
+      setSelectedFiles([]);
+
+    }};
   return (
     <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors ">
 
@@ -599,7 +699,7 @@ const handleRestoreFile = async (fileId) => {
 
 
       <div>
-        {selectedFiles.length > 0 && (
+        {((selectedFiles.length > 0)&&(breadcrumb[breadcrumb.length - 1]?.id !== "recyclebin")) ? (
           <div className="p-3 mb-5 bg-gray-100 dark:bg-gray-800 text-sm font-medium flex justify-between items-center">
             {selectedFiles.length > 0 ? (
               <span className="text-white">
@@ -626,6 +726,9 @@ const handleRestoreFile = async (fileId) => {
                   >
                     <FaCopy />
                   </button>
+                  <button onClick={handleDeleteFile} className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200">
+                    <FaTrash />
+                  </button>
                 </div>
               )}
 
@@ -642,7 +745,45 @@ const handleRestoreFile = async (fileId) => {
             </div>
 
           </div>
-        )}
+        ):((selectedFiles.length > 0)&&(breadcrumb[breadcrumb.length - 1]?.id === "recyclebin"))?(
+                    <div className="p-3 mb-5 bg-gray-100 dark:bg-gray-800 text-sm font-medium flex justify-between items-center">
+            {selectedFiles.length > 0 ? (
+              <span className="text-white">
+                {selectedFiles.filter((f) => f.is_folder).length} folder(s) and{" "}
+                {selectedFiles.filter((f) => !f.is_folder).length} file(s)
+                selected
+              </span>
+            ) : (
+              <span>No files selected</span>
+            )}
+            <div className="flex">
+              {selectedFiles.length > 0 && (
+
+                <div>
+                  <button
+                    onClick={handleMultipleRestoreFile}
+                    className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
+                  >
+                    <FaUndo />
+                  </button>
+                  <button
+                    onClick={handleMultiplePermanentDelete}
+                    className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
+                  >
+                    <FaTrashAlt />
+                  </button>
+                 
+                </div>
+              )}
+
+              
+              <button className="ml-4 bg-gray-700 text-red-200 px-3 rounded" onClick={handleClose}>X</button>
+
+            </div>
+
+          </div>
+
+        ):null}
 
         <div
           className={
@@ -762,7 +903,7 @@ const handleRestoreFile = async (fileId) => {
 
                             <div className="flex justify-between items-center mb-4 text-sm">
                               <button
-                                onClick={() => openRenameModal(file.id, file.fileName)} 
+                                onClick={() => openRenameModal(file.id, file.display_name)} 
                                 className="flex text-gray-500 hover:text-pink-200"
                               >
                                 <FaEdit className="mr-2" /> Rename
@@ -780,7 +921,7 @@ const handleRestoreFile = async (fileId) => {
 
                             <div className="flex justify-between items-center mb-4 text-sm">
                               <button
-                                onClick={() => handleDeleteFile(file.id, file.display_name)}
+                                onClick={() => handleSingleDeleteFile(file.id, file.display_name)}
                                 className="flex text-gray-500 hover:text-red-200"
                               >
                                 <FaTrash className="mr-2" /> Delete
@@ -834,7 +975,7 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
 
                   {/* File name */}
                   <td className="px-3 py-2 flex items-center gap-2 text-sm text-gray-800 dark:text-gray-300 cursor-pointer">
-                    {getFileIcon(file, 25)}
+                    {getFileIcon(file, 30)}
                     <div
                       className="truncate max-w-xs"
                       onClick={() =>
@@ -858,7 +999,7 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                     >
                       <FaEllipsisV size={16} />
                     </button>
-
+                    
                     {/* Dropdown menu */}
                     {selectedMenu === file.id && (
                        <div className="absolute bottom-0  right-0 mt-2 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-20 overflow-hidden">
@@ -877,7 +1018,7 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                             onClick={() => handleRestoreFile(file.id)}
                             className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                           >
-                            <FaTrashAlt /> Restore
+                            <FaUndo /> Restore
                           </button>
                           <button
                             onClick={() => handlePermanentDelete(file.id)}
@@ -908,7 +1049,7 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                             <FaTrash /> Delete
                           </button>
                           <button
-                            onClick={() => openRenameModal(file.id, file.fileName)} 
+                            onClick={() => openRenameModal(file.id, file.display_name)} 
                             className="w-full text-left px-4 py-2 hover:bg-pink-100 dark:hover:bg-pink-700 flex items-center gap-2"
                           >
                             <FaEdit /> Rename
@@ -1144,7 +1285,7 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-gray-800 rounded-lg p-6 w-80 shadow-lg">
             <h3 className="text-lg font-semibold mb-4 text-gray-300">Rename Item</h3>
-            <p className="text-sm text-gray-400 mb-2">Current Name: **{fileToRename.filename}**</p>
+            <p className="text-sm text-gray-400 mb-2">Current Name: <b>{fileToRename.fileName}</b></p>
             <input
               type="text"
               value={fileToRename.newName}

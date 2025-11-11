@@ -1,6 +1,6 @@
 import React from "react";
 
-import { FaArrowLeft, FaArrowUp, FaGreaterThan } from "react-icons/fa"; // Make sure you have react-icons installed
+import { FaArrowLeft, FaArrowUp, FaGreaterThan } from "react-icons/fa"; 
 
 export const BreadcrumbComponent = ({ data = [], onBreadcrumbSelect, onGoParent }) => {
   const allCrumbs = [{ id: "0", name: "upload" }, ...data.filter(item => item.name)];
