@@ -20,10 +20,10 @@ export default function CreateDropdown({ onNewFolderClick, onNewFileClick }) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center px-4 py-2 bg-purple-500 border border-purple-500 text-white rounded shadow hover:bg-purple-600 transition"
+        onClick={() => setOpen(!open)} title="Create File/Folder"
+        className="flex items-center px-4 py-2 bg-green-600 border border-green-600 text-white rounded shadow hover:bg-green-800 hover:border-green-800 transition"
       >
-        <FaPlus className="mr-2" /> New
+        <FaPlus /> 
       </button>
 
       {open && (
@@ -31,6 +31,7 @@ export default function CreateDropdown({ onNewFolderClick, onNewFileClick }) {
           <li>
             <button
               className="w-full flex text-left px-4 py-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Create Folder"
               onClick={() => {
                 onNewFolderClick();
                 setOpen(false);
@@ -42,6 +43,7 @@ export default function CreateDropdown({ onNewFolderClick, onNewFileClick }) {
           <li>
             <button
               className="w-full flex text-left px-4 text-gray-400 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Create File"
               onClick={() => {
                 onNewFileClick();
                 setOpen(false);

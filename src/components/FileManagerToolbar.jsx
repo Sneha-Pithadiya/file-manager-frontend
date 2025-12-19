@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import CreateDropdown from "./CreateDropDown";
+import SyncButton from "./SyncButtons";
 import {
  FaArrowUp,
  FaArrowDown,
