@@ -37,43 +37,70 @@ export const FileManagerToolbar = ({
  const [view, setView] = useState("grid");
  const [searchResults, setSearchResults] = useState([]);
  const [loading, setLoading] = useState(false);
- const searchTimeout = useRef(null);
 
+const [currentUser, setCurrentUser] = useState(null);
+
+useEffect(() => {
+    const fetchUser = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+            const response = await fetch("http://127.0.0.1:8000/users/me", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                setCurrentUser(userData); // This will contain the 'role'
+            }
+        } catch (error) {
+            console.error("Failed to fetch current user:", error);
+        }
+    };
+
+    fetchUser();
+}, []);
  const handleRemoveFile = (index) => {
  // This logic correctly updates the state (via onFileChange)
  const updatedFiles = files.filter((_, i) => i !== index);
  onFileChange({ files: updatedFiles });
  };
 
- const handleSearch = (query) => {
- const sanitizedQuery = query.trim();
+ const searchTimeout = useRef(null);
 
- if (searchTimeout.current) {
-  clearTimeout(searchTimeout.current);
- }
+  const handleSearch = (query) => {
+    const sanitizedQuery = query.trim();
 
- searchTimeout.current = setTimeout(async () => {
-  if (!sanitizedQuery) {
-  setSearchResults([]);
-  onSearchChange("");
-  return;
-  }
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
 
-  setLoading(true);
-  try {
-  const response = await fetch(`http://127.0.0.1:8000/files/search/${encodeURIComponent(query)}`);
+    searchTimeout.current = setTimeout(async () => {
+      // If query is empty, tell the parent component to reset the view
+      if (!sanitizedQuery) {
+        onSearchChange("");
+        return;
+      }
 
-  const data = await response.json();
-  setSearchResults(data.results || []);
-  onSearchChange(sanitizedQuery);
-  } catch (err) {
-  console.error("Search API error:", err);
-  setSearchResults([]);
-  } finally {
-  setLoading(false);
-  }
- }, 300);
- };
+      setLoading(true);
+      try {
+        // We pass the query to the search endpoint
+        // The backend should be configured to search globally (all folders)
+        const response = await fetch(`http://127.0.0.1:8000/files/search/${encodeURIComponent(sanitizedQuery)}`);
+        const data = await response.json();
+        
+        // Update the parent state with the results
+        onSearchChange(sanitizedQuery, data.results || []); 
+      } catch (err) {
+        console.error("Search API error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }, 400); // Slightly higher debounce for better performance
+  };
 
  const handleUploadDone = () => {
  setDialogVisible(false);
@@ -84,35 +111,20 @@ export const FileManagerToolbar = ({
 
  return (
  <div className="flex flex-wrap items-center gap-3 p-3 bg-white dark:bg-gray-800 shadow rounded border-gray-500 mb-4">
-  <FaSearch className="text-gray-400" />
-  <input
-  type="text"
-  placeholder="Search files, folders ..."
-  className="w-1/3 py-1 px-3 rounded focus:outline-none dark:text-gray-100"
-  onChange={(e) => handleSearch(e.target.value)}
-  />
-        
-    
-
-  {loading && <span className="ml-2 text-gray-500">Searching...</span>}
+  <div className="flex items-center w-210 relative">
+        <FaSearch className="absolute left-3 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search file / folder here..."
+          className="w-full py-2 pl-10 pr-3 rounded  focus:outline-none dark:text-gray-100"
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+        {loading && (
+           <span className="absolute right-3 text-xs text-gray-500 animate-pulse">Searching...</span>
+        )}
+      </div>
 
   <div className="flex ml-auto items-center gap-2">
-    <div className="flex items-center gap-2 text-white text-sm">
-        <span className="text-gray-400">Folder Search</span>
-        <label htmlFor="global-search-toggle" className="flex items-center cursor-pointer">
-            <input
-                type="checkbox"
-                id="global-search-toggle"
-                checked={isGlobalSearch}
-                onChange={(e) => setIsGlobalSearch(e.target.checked)}
-                className="hidden"
-            />
-            <div className={`w-14 h-5 flex items-center rounded-full p-1 transition duration-200 ${isGlobalSearch ? 'bg-blue-500' : 'bg-gray-400'}`}>
-                <div className={`bg-white w-2 h-3 p-2 rounded-full shadow-md transform transition duration-200 ${isGlobalSearch ? 'translate-x-4' : 'translate-x-0'}`}></div>
-            </div>
-        </label>
-        <span className="text-gray-400">All Folders</span>
-    </div>
   <CreateDropdown
    onNewFolderClick={onNewFolderClick}
    onNewFileClick={onNewFileClick}
@@ -123,13 +135,16 @@ export const FileManagerToolbar = ({
    setFiles([]); 
    setDialogVisible(true);
    }}
-   className="flex items-center px-4 py-2 bg-gray-500 border border-gray-600 text-white rounded shadow hover:bg-gray-700 transition"
+   title="Upload File/Folder"
+   className="flex items-center px-4 py-2 bg-blue-600 border border-blue-600 text-gray-200 hover:text-white rounded hover:border-blue-800 hover:bg-blue-800 transition"
   >
-   <FaCloudUploadAlt className="mr-2" /> Upload
+   <FaCloudUploadAlt  /> 
   </button>
-  <button onClick={viewRecycleBin} className="flex items-center px-2 py-3 bg-red-500 border border-red-600 text-white rounded shadow hover:bg-gray-700 transition" >
-   <FaTrashRestoreAlt />
-  </button>
+  {currentUser?.role === 'admin' && <><SyncButton />   <button onClick={viewRecycleBin} className="flex items-center px-4 py-2 bg-red-500 border border-red-600 text-white rounded  hover:border-red-700 shadow hover:bg-red-700 transition" >
+   <FaTrashRestoreAlt /> 
+  </button> </>
+}
+
 
   {dialogVisible && (
    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -222,49 +237,40 @@ export const FileManagerToolbar = ({
   )}
 
 
-  <div className="flex gap-2">
-   <button
-   className={`px-3 py-2 rounded shadow ${
-    sort[0].dir === "asc" ? "border text-white" : "bg-gray-800 border-gray-800 text-gray-500"
-   }`}
-   onClick={() => onSortChange({ direction: "asc" })}
-   >
-   <FaArrowUp />
-   </button>
-   <button
-   className={`px-3 py-2 rounded shadow ${
-    sort[0].dir === "desc" ? "border text-white" : "bg-gray-800 border-gray-800 text-gray-500"
-   }`}
-   onClick={() => onSortChange({ direction: "desc" })}
-   >
-   <FaArrowDown />
-   </button>
-  </div>
+ <button
+  className={`px-4 py-2 rounded shadow border transition-all flex items-center justify-center ${
+    sort[0].dir ? "text-white border-gray-600 bg-gray-700" : "bg-gray-800 border-gray-800 text-gray-500"
+  } hover:bg-gray-600`}
+  onClick={() => {
+    const newDirection = sort[0].dir === "asc" ? "desc" : "asc";
+    onSortChange({ direction: newDirection });
+  }}
+  title={`Sort ${sort[0].dir === "asc" ? "Descending" : "Ascending"}`}
+>
+  {/* Only the Icon is rendered now */}
+  {sort[0].dir === "asc" ? <FaArrowUp size={18} /> : <FaArrowDown size={18} />}
+</button>
 
-  <div className="flex gap-2 ml-4">
-   <button
-   className={`px-3 py-3 rounded shadow ${
-    view === "grid" ? "border text-white" : "bg-gray-800 border-gray-800 text-gray-500"
-   }`}
-   onClick={() => {
-    setView("grid");
-    onViewChange({ view: "grid" });
-   }}
-   >
-   <FaTh />
-   </button>
-   <button
-   className={`px-3 py-3 rounded shadow ${
-    view === "list" ? "border text-white" : "bg-gray-800 border-gray-800 text-gray-500"
-   }`}
-   onClick={() => {
-    setView("list");
-    onViewChange({ view: "list" });
-   }}
-   >
-   <FaList />
-   </button>
-  </div>
+  <button
+  className="px-4 py-2.5 rounded shadow border border-gray-600 bg-gray-800 text-white hover:bg-gray-700 transition-all flex items-center gap-2"
+  onClick={() => {
+    const nextView = view === "grid" ? "list" : "grid";
+    setView(nextView);
+    onViewChange({ view: nextView });
+  }}
+  title={view === "grid" ? "Switch to List View" : "Switch to Grid View"}
+>
+  {/* The icon changes based on the CURRENT view */}
+  {view === "grid" ? (
+    <>
+      <FaList className="text-blue-400" />
+    </>
+  ) : (
+    <>
+      <FaTh className="text-blue-400" />
+    </>
+  )}
+</button>
   </div>
  </div>
  );
