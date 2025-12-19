@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaAudioDescription, FaCopy, FaCut, FaDownload, FaEdit, FaEllipsisV, FaEye, FaPaste, FaStar, FaTrash, FaWrench, FaUndo, FaTrashAlt, FaPlus, FaFolderPlus } from "react-icons/fa";
+import { FaAudioDescription,FaFolderOpen, FaTrashRestoreAlt, FaCopy, FaCut, FaDownload, FaEdit, FaEllipsisV, FaEye, FaPaste, FaStar, FaTrash, FaWrench, FaUndo, FaTrashAlt, FaPlus, FaFolderPlus } from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
 import { FaEllipsis, FaXmark, FaExclamation, FaTriangleExclamation, FaCloudArrowUp, FaFileCirclePlus } from "react-icons/fa6";
 import { BiLeftArrowCircle, BiRightArrowCircle } from "react-icons/bi";
@@ -215,41 +215,63 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
     setIsClickFile(null); 
   };
 
-  const handleRenameSubmit = async () => {
-    const { id: fileId, filename: currentFilename, newName } = fileToRename;
-    if (!newName.trim() || newName === currentFilename) {
-      setShowRenameModal(false);
-      return;
-    }
+const handleRenameSubmit = async () => {
+  // 1. Get the original file object to check if it's a folder or file
+  const originalFile = files.find(f => f.id === fileToRename.id);
+  const { id: fileId, fileName: currentFilename } = fileToRename;
+  let newName = fileToRename.newName;
 
-    try {
-      const response = await fetch(`http://localhost:8000/files/rename?file_id=${fileId}&new_name=${encodeURIComponent(newName)}`, {
+  if (!newName?.trim()) {
+    setShowRenameModal(false);
+    return;
+  }
+
+  // 2. Logic to preserve extension for files
+  if (originalFile && !originalFile.is_folder) {
+    // Get extension from the original database filename (e.g., ".png")
+    const extension = currentFilename.slice(((currentFilename.lastIndexOf(".") - 1) >>> 0) + 2);
+    
+    // Check if the user already typed the extension. If not, add it.
+    if (extension && !newName.toLowerCase().endsWith(`.${extension.toLowerCase()}`)) {
+      newName = `${newName}.${extension}`;
+    }
+  }
+
+  // 3. Prevent unnecessary API calls
+  if (newName === currentFilename) {
+    setShowRenameModal(false);
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `http://localhost:8000/files/rename?file_id=${fileId}&new_name=${encodeURIComponent(newName)}`,
+      {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || "Rename failed");
       }
+    );
 
+    if (!response.ok) {
       const data = await response.json();
-      showMessage(data.message || "File renamed successfully!");
-
-      const parentId = breadcrumb[breadcrumb.length - 1]?.id || 0;
-      fetchFiles(parentId); // Refresh files
-    } catch (error) {
-      showMessage(error.message || "Rename failed.");
-    } finally {
-      setShowRenameModal(false);
-      setFileToRename({ id: null, fileName: '', newName: '' });
-      console.log("Rename modal closed", fileToRename);
+      throw new Error(data.detail || "Rename failed");
     }
-  };
 
+    const data = await response.json();
+    showMessage("File renamed successfully!");
+
+    const parentId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+    fetchFiles(parentId);
+
+  } catch (error) {
+    showMessage(error.message || "Rename failed.");
+  } finally {
+    setShowRenameModal(false);
+    setFileToRename({ id: null, fileName: "", newName: "" });
+  }
+};
   const sortedFiles = files
     .filter((file) => file.display_name)
     .sort((a, b) => {
@@ -272,16 +294,22 @@ const fetchFiles = async (folderId = null) => {
     try {
         let url;
         const query = searchQuery.trim();
-        const targetFolderId = folderId !== null ? folderId : (breadcrumb[breadcrumb.length - 1]?.id || 0);
+        // Determine current folder from breadcrumbs or param
+        const currentFolderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+        const targetFolderId = folderId !== null ? folderId : currentFolderId;
 
-        if (targetFolderId === "recyclebin") {
-            url = `http://127.0.0.1:8000/files/recyclebin`;
-        } 
-        else if (query && isGlobalSearch) {
+        // 1. GLOBAL SEARCH PRIORITY
+        // If user typed something, we ignore the folder and search everywhere
+        if (query) {
             url = `http://127.0.0.1:8000/files/search/${encodeURIComponent(query)}`;
         } 
+        // 2. RECYCLE BIN
+        else if (targetFolderId === "recyclebin") {
+            url = `http://127.0.0.1:8000/files/recyclebin`;
+        } 
+        // 3. NORMAL FOLDER VIEW
         else { 
-             url = targetFolderId
+            url = targetFolderId
                 ? `http://127.0.0.1:8000/files/folder/${targetFolderId}`
                 : `http://127.0.0.1:8000/files/folder/0`;
         }
@@ -295,8 +323,10 @@ const fetchFiles = async (folderId = null) => {
         const rawData = await res.json();
         let data;
 
-        if (targetFolderId === "recyclebin" || (query && isGlobalSearch)) {
-            data = Array.isArray(rawData?.results) ? rawData.results : [];
+        // Handle the difference in JSON structure between Search and Folder list
+        // Search usually returns { results: [...] } while folder returns [...]
+        if (query || targetFolderId === "recyclebin") {
+            data = Array.isArray(rawData?.results) ? rawData.results : (Array.isArray(rawData) ? rawData : []);
         } else {
             data = Array.isArray(rawData) ? rawData : [];
         }
@@ -310,13 +340,11 @@ const fetchFiles = async (folderId = null) => {
                 display_name: isFolder ? name : name.replace(/\.[^/.]+$/, ""),
             };
         });
-        
-        setFiles(updatedData); 
+
+        setFiles(updatedData); // Update your state with the search or folder results
 
     } catch (err) {
-        console.error("Error fetching files:", err);
-        setMessage("Failed to load files.");
-        setFiles([]);
+        console.error("Fetch error:", err);
     }
 };
   const handleFolderClick = (folderId, folderName) => {
@@ -794,28 +822,47 @@ const handleMultiplePermanentDelete = async () => {
         >
           {filteredFiles.length === 0 ? (
             <div className="flex gap-5 justify-center items-center flex-col text-center p-4 text-gray-500 dark:text-gray-300 h-100 text-lg">
-              <div>
-                <FaTriangleExclamation size={"50"} />
-              </div>
-              Empty Folder
-              <div className="flex gap-2">
-                <button onClick={onNewFolderClick} className="flex items-center p-2 bg-purple-600 border border-purple-600 text-white rounded shadow hover:bg-purple-700 transition">
-                  <FaFolderPlus className="inline mr-2 font-normal" />
-                  Folder
-                </button>
-                <button
-                  onClick={() => setShowFileModal(true)}
-                  className="flex items-center px-4 py-2 bg-green-600 border border-green-600 text-white rounded shadow hover:bg-green-700 transition"
-                >
-                  <FaFileCirclePlus className="inline mr-2 font-normal" />
-                  File
-                </button>
+              
+              {breadcrumb[breadcrumb.length - 1]?.id === "recyclebin" ? (
+      <>
+        <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full">
+          <FaTrashRestoreAlt size={"50"} className="text-gray-400" />
+        </div>
+        <div>
+          <h3 className="font-bold text-xl">Recycle Bin is empty</h3>
+          <p className="text-sm text-gray-400">Items you delete will appear here.</p>
+        </div>
+      </>
+    )
+            : (
+      <>
+        <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-full">
+          <FaFolderOpen size={"50"} className="text-purple-400" />
+        </div>
+        <div>
+          <h3 className="font-bold text-xl">This folder is empty</h3>
+          <p className="text-sm text-gray-400 mb-4">Start by adding a new file or folder.</p>
+        </div>
+        
+        {/* Action Buttons - Only for regular folders */}
+        <div className="flex gap-2">
+          <button onClick={onNewFolderClick} className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-all active:scale-95">
+            <FaFolderPlus className="mr-2" />
+            New Folder
+          </button>
+          <button onClick={() => setShowFileModal(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition-all active:scale-95">
+            <FaFileCirclePlus className="mr-2" />
+            New File
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+) :
 
 
 
-              </div>
-            </div>
-          ) : (
+           (
             filteredFiles.map((file) =>
 
               viewType === "grid" ? (
