@@ -2,9 +2,34 @@ import React, { useEffect, useState } from "react";
 import { BreadcrumbComponent } from "../components/BreadCrumbsComponents";
 import { FileManagerToolbar } from "../components/FileManagerToolbar";
 import { getFileIcon } from "../helper/Fileicons";
-import { FaAudioDescription,FaFolderOpen, FaTrashRestoreAlt, FaCopy, FaCut, FaDownload, FaEdit, FaEllipsisV, FaEye, FaPaste, FaStar, FaTrash, FaWrench, FaUndo, FaTrashAlt, FaPlus, FaFolderPlus } from "react-icons/fa";
+import {
+  FaAudioDescription,
+  FaFolderOpen,
+  FaTrashRestoreAlt,
+  FaCopy,
+  FaCut,
+  FaDownload,
+  FaEdit,
+  FaEllipsisV,
+  FaEye,
+  FaPaste,
+  FaStar,
+  FaTrash,
+  FaWrench,
+  FaUndo,
+  FaTrashAlt,
+  FaPlus,
+  FaFolderPlus,
+} from "react-icons/fa";
 import CreateFolder from "../components/CreateFolder";
-import { FaEllipsis, FaXmark, FaExclamation, FaTriangleExclamation, FaCloudArrowUp, FaFileCirclePlus } from "react-icons/fa6";
+import {
+  FaEllipsis,
+  FaXmark,
+  FaExclamation,
+  FaTriangleExclamation,
+  FaCloudArrowUp,
+  FaFileCirclePlus,
+} from "react-icons/fa6";
 import { BiLeftArrowCircle, BiRightArrowCircle } from "react-icons/bi";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 
@@ -41,8 +66,19 @@ export default function FileManager() {
   const [showFileModal, setShowFileModal] = useState(false);
   const [fileName, setFileName] = useState("");
   const [showRenameModal, setShowRenameModal] = useState(false);
-const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newName: '' }); 
-
+  const [fileToRename, setFileToRename] = useState({
+    id: null,
+    filename: "",
+    newName: "",
+  });
+  // Add these with your other states
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    file: null,
+  });
+  const clickTimer = React.useRef(null);
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -50,7 +86,7 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
     fetchFiles(lastId);
   }, [breadcrumb, currentPage, searchQuery, isGlobalSearch]);
 
-
+  // download file / folder
   const handleDownload = async (fileId, fileName) => {
     try {
       const res = await fetch(
@@ -69,10 +105,11 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setTimeout(() => setMessage(""), 2000);;
+      setTimeout(() => setMessage(""), 2000);
     }
   };
 
+  // viewProperties
   const handleViewProperties = async (fileId) => {
     try {
       const res = await fetch(
@@ -88,6 +125,7 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
     }
   };
 
+  // viewlogs
 
   const handleViewLogs = async (fileId, fileName) => {
     try {
@@ -107,7 +145,7 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
     }
   };
 
-
+  // downloadlogs
   const downloadLogs = async () => {
     if (!currentFileId) return;
     try {
@@ -130,11 +168,12 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
       alert(err.message);
     }
   };
-
+  // foldercreate model open
   const onNewFolderClick = () => {
     setShowModal(true);
   };
 
+  // create folder
   const handleCreateFolder = async () => {
     if (!folderName.trim()) {
       setMessage("Folder name cannot be empty!");
@@ -174,104 +213,114 @@ const [fileToRename, setFileToRename] = useState({ id: null, filename: '', newNa
     }
   };
 
-
+  // create file
   const handleCreateFile = async () => {
-  if (!fileName.trim()) return alert("File name is required");
+    if (!fileName.trim()) return alert("File name is required");
 
-  const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
+    const parentId = breadcrumb[breadcrumb.length - 1]?.id || null;
 
-  try {
-    const res = await fetch(`http://127.0.0.1:8000/files/createfile`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        name: fileName.trim(),
-        parent_id: parentId,
-      }),
-    });
-
-    if (!res.ok) throw new Error("Failed to create file");
-
-    const folderPath = parentId;
-    await fetchFiles(folderPath);
-
-    setShowFileModal(false);
-    setFileName("");
-
-  } catch (err) {
-    console.error(err.message);
-    setMessage(err.message);
-    setTimeout(() => setMessage(""), 2000);
-  }
-};
-
-
-  const openRenameModal = (fileId, currentFilename) => {
-    setFileToRename({ id: fileId, fileName: currentFilename, newName: currentFilename });
-    setShowRenameModal(true);
-    setIsClickFile(null); 
-  };
-
-const handleRenameSubmit = async () => {
-  // 1. Get the original file object to check if it's a folder or file
-  const originalFile = files.find(f => f.id === fileToRename.id);
-  const { id: fileId, fileName: currentFilename } = fileToRename;
-  let newName = fileToRename.newName;
-
-  if (!newName?.trim()) {
-    setShowRenameModal(false);
-    return;
-  }
-
-  // 2. Logic to preserve extension for files
-  if (originalFile && !originalFile.is_folder) {
-    // Get extension from the original database filename (e.g., ".png")
-    const extension = currentFilename.slice(((currentFilename.lastIndexOf(".") - 1) >>> 0) + 2);
-    
-    // Check if the user already typed the extension. If not, add it.
-    if (extension && !newName.toLowerCase().endsWith(`.${extension.toLowerCase()}`)) {
-      newName = `${newName}.${extension}`;
-    }
-  }
-
-  // 3. Prevent unnecessary API calls
-  if (newName === currentFilename) {
-    setShowRenameModal(false);
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `http://localhost:8000/files/rename?file_id=${fileId}&new_name=${encodeURIComponent(newName)}`,
-      {
-        method: "PUT",
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/files/createfile`, {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      }
-    );
+        body: JSON.stringify({
+          name: fileName.trim(),
+          parent_id: parentId,
+        }),
+      });
 
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.detail || "Rename failed");
+      if (!res.ok) throw new Error("Failed to create file");
+
+      const folderPath = parentId;
+      await fetchFiles(folderPath);
+
+      setShowFileModal(false);
+      setFileName("");
+    } catch (err) {
+      console.error(err.message);
+      setMessage(err.message);
+      setTimeout(() => setMessage(""), 2000);
+    }
+  };
+
+  // rename model open
+  const openRenameModal = (fileId, currentFilename) => {
+    setFileToRename({
+      id: fileId,
+      fileName: currentFilename,
+      newName: currentFilename,
+    });
+    setShowRenameModal(true);
+    setIsClickFile(null);
+  };
+
+  // hadlerename
+  const handleRenameSubmit = async () => {
+    // 1. Get the original file object to check if it's a folder or file
+    const originalFile = files.find((f) => f.id === fileToRename.id);
+    const { id: fileId, fileName: currentFilename } = fileToRename;
+    let newName = fileToRename.newName;
+
+    if (!newName?.trim()) {
+      setShowRenameModal(false);
+      return;
     }
 
-    const data = await response.json();
-    showMessage("File renamed successfully!");
+    // 2. Logic to preserve extension for files
+    if (originalFile && !originalFile.is_folder) {
+      // Get extension from the original database filename (e.g., ".png")
+      const extension = currentFilename.slice(
+        ((currentFilename.lastIndexOf(".") - 1) >>> 0) + 2
+      );
 
-    const parentId = breadcrumb[breadcrumb.length - 1]?.id || 0;
-    fetchFiles(parentId);
+      // Check if the user already typed the extension. If not, add it.
+      if (
+        extension &&
+        !newName.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+      ) {
+        newName = `${newName}.${extension}`;
+      }
+    }
 
-  } catch (error) {
-    showMessage(error.message || "Rename failed.");
-  } finally {
-    setShowRenameModal(false);
-    setFileToRename({ id: null, fileName: "", newName: "" });
-  }
-};
+    // 3. Prevent unnecessary API calls
+    if (newName === currentFilename) {
+      setShowRenameModal(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/files/rename?file_id=${fileId}&new_name=${encodeURIComponent(
+          newName
+        )}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Rename failed");
+      }
+
+      const data = await response.json();
+      showMessage("File renamed successfully!");
+
+      const parentId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+      fetchFiles(parentId);
+    } catch (error) {
+      showMessage(error.message || "Rename failed.");
+    } finally {
+      setShowRenameModal(false);
+      setFileToRename({ id: null, fileName: "", newName: "" });
+    }
+  };
   const sortedFiles = files
     .filter((file) => file.display_name)
     .sort((a, b) => {
@@ -286,86 +335,91 @@ const handleRenameSubmit = async () => {
   const formatDate = (dateStr) =>
     dateStr ? new Date(dateStr).toLocaleString() : "";
 
+  // file click
   const handleFileClick = (id) => {
     setIsClickFile(isClickFile === id ? null : id);
-  }
+  };
 
-const fetchFiles = async (folderId = null) => {
+  // fetchFiles
+  const fetchFiles = async (folderId = null) => {
     try {
-        let url;
-        const query = searchQuery.trim();
-        // Determine current folder from breadcrumbs or param
-        const currentFolderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
-        const targetFolderId = folderId !== null ? folderId : currentFolderId;
+      let url;
+      const query = searchQuery.trim();
+      // Determine current folder from breadcrumbs or param
+      const currentFolderId = breadcrumb[breadcrumb.length - 1]?.id || 0;
+      const targetFolderId = folderId !== null ? folderId : currentFolderId;
 
-        // 1. GLOBAL SEARCH PRIORITY
-        // If user typed something, we ignore the folder and search everywhere
-        if (query) {
-            url = `http://127.0.0.1:8000/files/search/${encodeURIComponent(query)}`;
-        } 
-        // 2. RECYCLE BIN
-        else if (targetFolderId === "recyclebin") {
-            url = `http://127.0.0.1:8000/files/recyclebin`;
-        } 
-        // 3. NORMAL FOLDER VIEW
-        else { 
-            url = targetFolderId
-                ? `http://127.0.0.1:8000/files/folder/${targetFolderId}`
-                : `http://127.0.0.1:8000/files/folder/0`;
-        }
+      // 1. GLOBAL SEARCH PRIORITY
+      // If user typed something, we ignore the folder and search everywhere
+      if (query) {
+        url = `http://127.0.0.1:8000/files/search/${encodeURIComponent(query)}`;
+      }
+      // 2. RECYCLE BIN
+      else if (targetFolderId === "recyclebin") {
+        url = `http://127.0.0.1:8000/files/recyclebin`;
+      }
+      // 3. NORMAL FOLDER VIEW
+      else {
+        url = targetFolderId
+          ? `http://127.0.0.1:8000/files/folder/${targetFolderId}`
+          : `http://127.0.0.1:8000/files/folder/0`;
+      }
 
-        const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        if (!res.ok) throw new Error("Failed to fetch files");
+      if (!res.ok) throw new Error("Failed to fetch files");
 
-        const rawData = await res.json();
-        let data;
+      const rawData = await res.json();
+      let data;
 
-        // Handle the difference in JSON structure between Search and Folder list
-        // Search usually returns { results: [...] } while folder returns [...]
-        if (query || targetFolderId === "recyclebin") {
-            data = Array.isArray(rawData?.results) ? rawData.results : (Array.isArray(rawData) ? rawData : []);
-        } else {
-            data = Array.isArray(rawData) ? rawData : [];
-        }
-        
-        const updatedData = data.map(file => { 
-            const name = file.filename || "";
-            const isFolder = file.is_folder;
+      if (query || targetFolderId === "recyclebin") {
+        data = Array.isArray(rawData?.results)
+          ? rawData.results
+          : Array.isArray(rawData)
+          ? rawData
+          : [];
+      } else {
+        data = Array.isArray(rawData) ? rawData : [];
+      }
 
-            return {
-                ...file,
-                display_name: isFolder ? name : name.replace(/\.[^/.]+$/, ""),
-            };
-        });
+      const updatedData = data.map((file) => {
+        const name = file.filename || "";
+        const isFolder = file.is_folder;
 
-        setFiles(updatedData); // Update your state with the search or folder results
+        return {
+          ...file,
+          display_name: isFolder ? name : name.replace(/\.[^/.]+$/, ""),
+        };
+      });
 
+      setFiles(updatedData); // Update your state with the search or folder results
     } catch (err) {
-        console.error("Fetch error:", err);
+      console.error("Fetch error:", err);
     }
-};
+  };
+  // folder open on click
   const handleFolderClick = (folderId, folderName) => {
     setBreadcrumb((prev) => [...prev, { name: folderName, id: folderId }]);
   };
-
+  // breadcrumb
   const handleBreadcrumbSelect = (item, index) => {
     const newBreadcrumb = breadcrumb.slice(0, index + 1);
     setBreadcrumb(newBreadcrumb);
 
     fetchFiles(item.id);
   };
+  // parent folder click
   const handleGoParent = () => {
-    if (breadcrumb.length <= 1) return; 
+    if (breadcrumb.length <= 1) return;
 
     const parentIndex = breadcrumb.length - 2;
     const parentItem = breadcrumb[parentIndex];
     handleBreadcrumbSelect(parentItem, parentIndex);
   };
 
-
+  // handleUploaddone
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
     setLoading(true);
@@ -398,8 +452,8 @@ const fetchFiles = async (folderId = null) => {
     }
   };
 
-  const handleDeleteFile = async (fileId=null) => {
-    
+  //handledeletefile bulk
+  const handleDeleteFile = async (fileId = null) => {
     if (selectedFiles.length === 0) {
       setMessage("Select files/folders to delete!");
       setTimeout(() => setMessage(""), 2000);
@@ -407,16 +461,19 @@ const fetchFiles = async (folderId = null) => {
     }
     try {
       for (const file of selectedFiles) {
-      const res = await fetch(`http://127.0.0.1:8000/files/delete/${file.id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        const res = await fetch(
+          `http://127.0.0.1:8000/files/delete/${file.id}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to delete file");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || "Failed to delete file");
+        }
       }
-    }
       setMessage("File deleted successfully");
 
       const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
@@ -427,10 +484,10 @@ const fetchFiles = async (folderId = null) => {
       setTimeout(() => setMessage(""), 2000);
     }
   };
-const handleSingleDeleteFile = async (fileId = null) => {
-  try {
-    
 
+  // handlesingledeletefile
+  const handleSingleDeleteFile = async (fileId = null) => {
+    try {
       const res = await fetch(`http://127.0.0.1:8000/files/delete/${fileId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -438,25 +495,24 @@ const handleSingleDeleteFile = async (fileId = null) => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || `Failed to delete file: ${file.filename}`);
+        throw new Error(
+          errorData.detail || `Failed to delete file: ${file.filename}`
+        );
       }
-    
 
-    // After deletion
-    setMessage(
-      
-       "File deleted successfully"
-    );
+      // After deletion
+      setMessage("File deleted successfully");
 
-    const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
-    fetchFiles(folderPath);
-  } catch (err) {
-    setMessage(err.message);
-  } finally {
-    setTimeout(() => setMessage(""), 2000);
-  }
-};
+      const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
+      fetchFiles(folderPath);
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setTimeout(() => setMessage(""), 2000);
+    }
+  };
 
+  // select files
   const handleSelectFile = (file) => {
     setSelectedFiles((prev) => {
       const exists = prev.find((f) => f.id === file.id);
@@ -468,10 +524,9 @@ const handleSingleDeleteFile = async (fileId = null) => {
     });
   };
 
+  // copy files
   const handleCopy = () => {
     if (selectedFiles.length === 0) {
-      setMessage("Select files/folders to copy!");
-      setTimeout(() => setMessage(""), 2000);
       return;
     }
     setCopiedFiles([...selectedFiles]);
@@ -479,24 +534,36 @@ const handleSingleDeleteFile = async (fileId = null) => {
     setTimeout(() => setMessage(""), 2000);
   };
 
+  // cut file
+  // const handleCut = () => {
+  //   if (selectedFiles.length === 0) {
+  //     setMessage("Select files/folders to cut!");
+  //     setTimeout(() => setMessage(""), 2000);
+  //     return;
+  //   }
+
+  //   setCutFiles([...selectedFiles]);
+  //   setCopiedFiles([]);
+  //   setMessage(`${selectedFiles.length} item(s) cut!`);
+  //   setTimeout(() => setMessage(""), 2000);
+  // };
   const handleCut = () => {
-    if (selectedFiles.length === 0) {
-      setMessage("Select files/folders to cut!");
-      setTimeout(() => setMessage(""), 2000);
-      return;
-    }
+  if (selectedFiles.length === 0) return;
 
-    setCutFiles([...selectedFiles]);
-    setCopiedFiles([]);
-    setMessage(`${selectedFiles.length} item(s) cut!`);
-    setTimeout(() => setMessage(""), 2000);
-  };
+  setCutFiles([...selectedFiles]);
+  setCopiedFiles([]);
+  showMessage(`${selectedFiles.length} item(s) cut!`);
+  // DO NOT call setSelectedFiles([]); here yet. 
+  // Let the user see what is selected until they paste or click away.
+};
 
+  // showmessage error/success
   const showMessage = (msg) => {
     setMessage(msg);
     setTimeout(() => setMessage(""), 2000);
   };
 
+  //paste files/folders
   const handlePaste = async () => {
     if (copiedFiles.length === 0 && cutFiles.length === 0) return;
 
@@ -516,14 +583,16 @@ const handleSingleDeleteFile = async (fileId = null) => {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
-          file_ids: targetFiles.map(f => f.id),
+          file_ids: targetFiles.map((f) => f.id),
           destination_folder_id: destinationFolderId,
         }),
       });
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail || `Failed to ${isCut ? "move" : "copy"} files`);
+        throw new Error(
+          err.detail || `Failed to ${isCut ? "move" : "copy"} files`
+        );
       }
 
       const data = await res.json();
@@ -540,32 +609,37 @@ const handleSingleDeleteFile = async (fileId = null) => {
     }
   };
 
+  // close three dots menu
   const handleClose = () => {
     setSelectedFiles([]);
-  }
+  };
 
   const handleToggleStar = async (fileId) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/files/star?file_id=${fileId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(
+        `http://127.0.0.1:8000/files/star?file_id=${fileId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await res.json();
       console.log("Star API response:", data);
 
       if (!res.ok || !data.id) throw new Error("Invalid response from server");
 
-      setFiles(prev =>
-        prev.map(f => f.id === fileId ? { ...f, is_star: data.is_star } : f)
+      setFiles((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, is_star: data.is_star } : f))
       );
     } catch (err) {
       console.error("Star toggle error:", err);
     }
   };
 
+  //view recyclebin
   const handleViewRecycleBin = async () => {
     try {
       const res = await fetch(`http://127.0.0.1:8000/files/recyclebin`, {
@@ -574,14 +648,14 @@ const handleSingleDeleteFile = async (fileId = null) => {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to fetch recycle bin items");
+      if (!res.ok)
+        throw new Error(data.detail || "Failed to fetch recycle bin items");
 
       const items = Array.isArray(data.results)
-  ? data.results
-  : Array.isArray(data)
-    ? data
-    : [];
-
+        ? data.results
+        : Array.isArray(data)
+        ? data
+        : [];
 
       setFiles(items);
 
@@ -592,15 +666,22 @@ const handleSingleDeleteFile = async (fileId = null) => {
       setTimeout(() => setMessage(""), 2000);
     }
   };
+
+  //peremenent delete
   const handlePermanentDelete = async (fileId) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/files/permenent_delete/${fileId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `http://127.0.0.1:8000/files/permenent_delete/${fileId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to permanently delete file");
+        throw new Error(
+          errorData.detail || "Failed to permanently delete file"
+        );
       }
       setMessage("File permanently deleted");
       const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
@@ -612,90 +693,165 @@ const handleSingleDeleteFile = async (fileId = null) => {
     }
   };
 
-const handleRestoreFile = async (fileId) => {
-  try {
-    const res = await fetch(`http://127.0.0.1:8000/files/restore/${fileId}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || "Failed to restore file");
-    }
-    setMessage("File restored successfully");
-    const folderPath = breadcrumb[breadcrumb.length - 2]?.id;
-    fetchFiles(folderPath);
-  } catch (err) {
-    setMessage(err.message);
-  } finally {   
-    setTimeout(() => setMessage(""), 2000);
-  }
-};
-const handleMultipleRestoreFile = async () => {
-  if (selectedFiles.length === 0) {
-      setMessage("Select files/folders to Restore !");  
-      setTimeout(() => setMessage(""), 2000);
-      return;
-    }
+  //restore file
+  const handleRestoreFile = async (fileId) => {
     try {
-      for (const file of selectedFiles) {
-      const res = await fetch(`http://127.0.0.1:8000/files/restore/${file.id}`, {
+      const res = await fetch(`http://127.0.0.1:8000/files/restore/${fileId}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) {  
+      if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to Restore  file");
+        throw new Error(errorData.detail || "Failed to restore file");
       }
-    }
-    setMessage("Files/ Folders Restored");
-    
-    setSelectedFiles([]);
+      setMessage("File restored successfully");
+      const folderPath = breadcrumb[breadcrumb.length - 2]?.id;
+      fetchFiles(folderPath);
     } catch (err) {
       setMessage(err.message);
-    }finally{
+    } finally {
       setTimeout(() => setMessage(""), 2000);
-      setSelectedFiles([]);
+    }
+  };
 
-    } 
-};
-const handleMultiplePermanentDelete = async () => {
+  // bulk restore file
+  const handleMultipleRestoreFile = async () => {
     if (selectedFiles.length === 0) {
-      setMessage("Select files/folders to permanently delete!");  
+      setMessage("Select files/folders to Restore !");
       setTimeout(() => setMessage(""), 2000);
       return;
-    } 
+    }
     try {
       for (const file of selectedFiles) {
-      const res = await fetch(`http://127.0.0.1:8000/files/permenent_delete/${file.id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {  
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to permanently delete file");
+        const res = await fetch(
+          `http://127.0.0.1:8000/files/restore/${file.id}`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || "Failed to Restore  file");
+        }
       }
-    }
-    setMessage("Files/ Folders Permanently deleted");
-    const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
-    fetchFiles(folderPath);
-    setSelectedFiles([]);
+      setMessage("Files/ Folders Restored");
+
+      setSelectedFiles([]);
     } catch (err) {
       setMessage(err.message);
-    }finally{
+    } finally {
       setTimeout(() => setMessage(""), 2000);
       setSelectedFiles([]);
+    }
+  };
+  //bulk permenent delete
+  const handleMultiplePermanentDelete = async () => {
+    if (selectedFiles.length === 0) {
+      setMessage("Select files/folders to permanently delete!");
+      setTimeout(() => setMessage(""), 2000);
+      return;
+    }
+    try {
+      for (const file of selectedFiles) {
+        const res = await fetch(
+          `http://127.0.0.1:8000/files/permenent_delete/${file.id}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(
+            errorData.detail || "Failed to permanently delete file"
+          );
+        }
+      }
+      setMessage("Files/ Folders Permanently deleted");
+      const folderPath = breadcrumb[breadcrumb.length - 1]?.id;
+      fetchFiles(folderPath);
+      setSelectedFiles([]);
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setTimeout(() => setMessage(""), 2000);
+      setSelectedFiles([]);
+    }
+  };
 
-    }};
+  const clickTimeout = React.useRef(null);
+  const handleFileClickAction = (e, file) => {
+    e.stopPropagation();
+
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current);
+      clickTimeout.current = null;
+    }
+
+    clickTimeout.current = setTimeout(() => {
+      handleSelectFile(file);
+      setIsClickFile(null);
+      setContextMenu({ visible: false, x: 0, y: 0, file: null });
+      clickTimeout.current = null;
+    }, 250);
+  };
+
+  const handleFileDoubleClickAction = (e, file) => {
+    e.stopPropagation();
+
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current);
+      clickTimeout.current = null;
+    }
+
+    if (file.is_folder) {
+      handleFolderClick(file.id, file.display_name); //
+    } else {
+      handleDownload(file.id, file.display_name); //
+    }
+  };
+  const handleContextMenuAction = (e, file) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setSelectedFiles([file]);
+
+    setContextMenu({
+      visible: true,
+      x: e.pageX,
+      y: e.pageY,
+      file: file,
+    });
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const isFileItem = e.target.closest(".file-item");
+      const isContextMenu = e.target.closest(".context-menu");
+      const isToolbarAction =
+        e.target.closest("button") || e.target.closest(".manager-toolbar");
+
+      if (!isFileItem && !isContextMenu && !isToolbarAction) {
+        setContextMenu({ visible: false, x: 0, y: 0, file: null });
+        setSelectedFiles([]); // Only clear if clicking actual empty space
+        setIsClickFile(null);
+      }
+    };
+
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
   return (
     <div className="min-h-screen p-8 bg-gray-500 dark:bg-gray-900 transition-colors ">
-
-
       <FileManagerToolbar
-        files={selectedFiles} 
-        setFiles={setSelectedFiles} 
-        onFileChange={({ files: newFiles }) => { 
-          setSelectedFiles(prevFiles => [...prevFiles, ...Array.from(newFiles)]);
+        files={selectedFiles}
+        setFiles={setSelectedFiles}
+        onFileChange={({ files: newFiles }) => {
+          setSelectedFiles((prevFiles) => [
+            ...prevFiles,
+            ...Array.from(newFiles),
+          ]);
         }}
         onClearFileList={() => setSelectedFiles([])}
         onUploadComplete={handleUpload}
@@ -705,14 +861,12 @@ const handleMultiplePermanentDelete = async () => {
         onSortChange={({ direction }) => setSortOrder([{ dir: direction }])}
         onSearchChange={setSearchQuery}
         onSwitchChange={(e) => setShowDetails(e.target.checked)}
- isGlobalSearch={isGlobalSearch}
- setIsGlobalSearch={setIsGlobalSearch}
+        isGlobalSearch={isGlobalSearch}
+        setIsGlobalSearch={setIsGlobalSearch}
         sort={sortOrder}
         splitItems={[]}
-        viewRecycleBin={handleViewRecycleBin} 
+        viewRecycleBin={handleViewRecycleBin}
       />
-
-
 
       <BreadcrumbComponent
         data={breadcrumb}
@@ -720,14 +874,9 @@ const handleMultiplePermanentDelete = async () => {
         onGoParent={handleGoParent}
       />
 
-
-
-
-
-
-
       <div>
-        {((selectedFiles.length > 0)&&(breadcrumb[breadcrumb.length - 1]?.id !== "recyclebin")) ? (
+        {selectedFiles.length > 0 &&
+        breadcrumb[breadcrumb.length - 1]?.id !== "recyclebin" ? (
           <div className="p-3 mb-5 bg-gray-100 dark:bg-gray-800 text-sm font-medium flex justify-between items-center">
             {selectedFiles.length > 0 ? (
               <span className="text-white">
@@ -740,21 +889,29 @@ const handleMultiplePermanentDelete = async () => {
             )}
             <div className="flex">
               {selectedFiles.length > 0 && (
-
                 <div>
                   <button
-                    onClick={handleCut}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevents clearing selection
+                      handleCut();
+                    }}
                     className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
                   >
                     <FaCut />
                   </button>
                   <button
-                    onClick={handleCopy}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevents clearing selection
+                      handleCopy();
+                    }}
                     className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
                   >
                     <FaCopy />
-                  </button>
-                  <button onClick={handleDeleteFile} className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200">
+                  </button>{" "}
+                  <button
+                    onClick={handleDeleteFile}
+                    className="ml-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-200"
+                  >
                     <FaTrash />
                   </button>
                 </div>
@@ -768,13 +925,17 @@ const handleMultiplePermanentDelete = async () => {
                   <FaPaste />
                 </button>
               )}
-              <button className="ml-4 bg-gray-700 text-red-200 px-3 rounded" onClick={handleClose}>X</button>
-
+              <button
+                className="ml-4 bg-gray-700 text-red-200 px-3 rounded"
+                onClick={handleClose}
+              >
+                X
+              </button>
             </div>
-
           </div>
-        ):((selectedFiles.length > 0)&&(breadcrumb[breadcrumb.length - 1]?.id === "recyclebin"))?(
-                    <div className="p-3 mb-5 bg-gray-100 dark:bg-gray-800 text-sm font-medium flex justify-between items-center">
+        ) : selectedFiles.length > 0 &&
+          breadcrumb[breadcrumb.length - 1]?.id === "recyclebin" ? (
+          <div className="p-3 mb-5 bg-gray-100 dark:bg-gray-800 text-sm font-medium flex justify-between items-center">
             {selectedFiles.length > 0 ? (
               <span className="text-white">
                 {selectedFiles.filter((f) => f.is_folder).length} folder(s) and{" "}
@@ -786,7 +947,6 @@ const handleMultiplePermanentDelete = async () => {
             )}
             <div className="flex">
               {selectedFiles.length > 0 && (
-
                 <div>
                   <button
                     onClick={handleMultipleRestoreFile}
@@ -800,325 +960,158 @@ const handleMultiplePermanentDelete = async () => {
                   >
                     <FaTrashAlt />
                   </button>
-                 
                 </div>
               )}
 
-              
-              <button className="ml-4 bg-gray-700 text-red-200 px-3 rounded" onClick={handleClose}>X</button>
-
+              <button
+                className="ml-4 bg-gray-700 text-red-200 px-3 rounded"
+                onClick={handleClose}
+              >
+                X
+              </button>
             </div>
-
           </div>
-
-        ):null}
+        ) : null}
 
         <div
           className={
             viewType === "grid"
-              ? `grid ${filteredFiles.length === 0 ? "grid-cols-1" : "grid-cols-7"} gap-2`
+              ? `grid ${
+                  filteredFiles.length === 0 ? "grid-cols-1" : "grid-cols-7"
+                } gap-2`
               : "  bg-white dark:bg-gray-800 shadow-md rounded-lg p-2"
           }
         >
           {filteredFiles.length === 0 ? (
             <div className="flex gap-5 justify-center items-center flex-col text-center p-4 text-gray-500 dark:text-gray-300 h-100 text-lg">
-              
               {breadcrumb[breadcrumb.length - 1]?.id === "recyclebin" ? (
-      <>
-        <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full">
-          <FaTrashRestoreAlt size={"50"} className="text-gray-400" />
-        </div>
-        <div>
-          <h3 className="font-bold text-xl">Recycle Bin is empty</h3>
-          <p className="text-sm text-gray-400">Items you delete will appear here.</p>
-        </div>
-      </>
-    )
-            : (
-      <>
-        <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-full">
-          <FaFolderOpen size={"50"} className="text-purple-400" />
-        </div>
-        <div>
-          <h3 className="font-bold text-xl">This folder is empty</h3>
-          <p className="text-sm text-gray-400 mb-4">Start by adding a new file or folder.</p>
-        </div>
-        
-        {/* Action Buttons - Only for regular folders */}
-        <div className="flex gap-2">
-          <button onClick={onNewFolderClick} className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-all active:scale-95">
-            <FaFolderPlus className="mr-2" />
-            New Folder
-          </button>
-          <button onClick={() => setShowFileModal(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition-all active:scale-95">
-            <FaFileCirclePlus className="mr-2" />
-            New File
-          </button>
-        </div>
-      </>
-    )}
-  </div>
-) :
-
-
-
-           (
+                <>
+                  <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full">
+                    <FaTrashRestoreAlt size={"50"} className="text-gray-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl">Recycle Bin is empty</h3>
+                    <p className="text-sm text-gray-400">
+                      Items you delete will appear here.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-full">
+                    <FaFolderOpen size={"50"} className="text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl">This folder is empty</h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Start by adding a new file or folder.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
             filteredFiles.map((file) =>
-
               viewType === "grid" ? (
                 <div
                   key={file.id}
                   className={`relative p-2 rounded flex flex-col items-center text-center cursor-pointer 
  hover:bg-gray-50 dark:hover:bg-gray-700
- ${selectedFiles.some((f) => f.id === file.id)
-                      ? "bg-gray-100 dark:bg-gray-700"
-                      : ""
-                    }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedFiles.some((f) => f.id === file.id)}
-                    onChange={() => handleSelectFile(file)}
-                    className="absolute top-2 left-2 w-4 h-4 opacity-0 hover:opacity-100 transition-opacity"
-                  />
-
-                  <div
-                    className="text-white text-right flex justify-end ms-auto hover:bg-gray-800 rounded-2xl p-2"
-                    onClick={() => handleFileClick(file.id)}
-                  >
-                    <FaEllipsis />
-                  </div>
-
-                  <div className="mb-2">{getFileIcon(file, 40)}</div>
-
-                  <div key={file.id} className=" text-xs mb-2">
-                    <p
-                      className="text-gray-900 dark:text-gray-500 cursor-pointer whitespace-normal text-xs w-40 break-words"
-                      onClick={() =>
-                        file.is_folder && handleFolderClick(file.id, file.display_name)
-                      }
-                    >
-                      {file.display_name}
-                    </p>
-
-
-                  </div>
-
-
-                  {isClickFile === file.id && (
-                    <div className="flex items-center justify-center relative z-50">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg m-2 absolute w-50 max-w-lg p-6">
-                        <div className="flex justify-end mb-4 text-sm pb-2">
-                          <button
-                            className="text-red-400 bg-gray-700 rounded-xl ml-2 px-2 py-1"
-                            onClick={() => setIsClickFile(false)}
-                          >
-                            <FaXmark />
-                          </button>
-                        </div>
-
-                        {breadcrumb[breadcrumb.length - 1]?.id === "recyclebin" ? (
-                          <>
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => handleRestoreFile(file.id)}
-                                className="flex text-gray-500 hover:text-green-300"
-                              >
-                                <FaUndo className="mr-2" /> Restore
-                              </button>
-                            </div>
-
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => handlePermanentDelete(file.id)}
-                                className="flex text-gray-500 hover:text-red-300"
-                              >
-                                <FaTrashAlt className="mr-2" /> Permanent Delete
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => handleDownload(file.id, file.display_name)}
-                                className="flex text-gray-500 hover:text-green-200"
-                              >
-                                <FaDownload className="mr-2" /> Download
-                              </button>
-                            </div>
-
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => openRenameModal(file.id, file.display_name)} 
-                                className="flex text-gray-500 hover:text-pink-200"
-                              >
-                                <FaEdit className="mr-2" /> Rename
-                              </button>
-                            </div>
-
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => handleViewLogs(file.id, file.display_name)}
-                                className="flex text-gray-500 hover:text-blue-200"
-                              >
-                                <FaEye className="mr-2" /> Details
-                              </button>
-                            </div>
-
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => handleSingleDeleteFile(file.id, file.display_name)}
-                                className="flex text-gray-500 hover:text-red-200"
-                              >
-                                <FaTrash className="mr-2" /> Delete
-                              </button>
-                            </div>
-
-
-                            {/* <div className="flex justify-between items-center mb-4 text-sm">
- <button
-onClick={() => handleToggleStar(file.id)}
-className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text-gray-400"
+ ${
+   selectedFiles.some((f) => f.id === file.id)
+     ? "bg-gray-100 dark:bg-gray-700"
+     : ""
  }`}
- >
-<FaStar className="mr-2" />
-{file.is_star ? "Unstar" : "Star"}
- </button>
-</div> */}
-
-                            <div className="flex justify-between items-center mb-4 text-sm">
-                              <button
-                                onClick={() => handleViewProperties(file.id)}
-                                className="flex text-gray-500 hover:text-red-200"
-                              >
-                                <FaWrench className="mr-2 mt-1" /> Properties
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                >
+                  <div
+                    key={file.id}
+                    className={`file-item relative p-2 rounded flex flex-col items-center text-center cursor-default transition-all
+      ${
+        selectedFiles.some((f) => f.id === file.id)
+          ? "bg-blue-100 dark:bg-gray-700 ring-2 ring-blue-500"
+          : "hover:bg-gray-100 dark:hover:bg-gray-800"
+      }`}
+                    onClick={(e) => handleFileClickAction(e, file)}
+                    onDoubleClick={(e) => handleFileDoubleClickAction(e, file)}
+                    onContextMenu={(e) => handleContextMenuAction(e, file)}
+                  >
+                    <div className="mb-2 pointer-events-none">
+                      {getFileIcon(file, 40)}
                     </div>
-                  )}
-
+                    <div className="text-xs mb-2 pointer-events-none">
+                      <p className="text-gray-900 dark:text-gray-300 w-40 break-words">
+                        {file.display_name}
+                      </p>
+                    </div>
+                  </div>{" "}
                 </div>
               ) : (
                 <tr
                   key={file.id}
-                  className={`border-b border-gray-300 dark:border-gray-700 ${selectedFiles.some((f) => f.id === file.id)
-                    ? "bg-blue-50 dark:bg-gray-700"
-                    : ""
-                    }`}
+                  className={`file-item group transition-all duration-150 select-none border-b border-gray-100 dark:border-gray-800/50 cursor-default relative
+    ${
+      selectedFiles.some((f) => f.id === file.id)
+        ? "bg-blue-50 dark:bg-blue-900/30" // This highlights the FULL background
+        : "hover:bg-gray-50 dark:hover:bg-gray-800/40"
+    }`}
+                  onClick={(e) => handleFileClickAction(e, file)}
+                  onDoubleClick={(e) => handleFileDoubleClickAction(e, file)}
+                  onContextMenu={(e) => handleContextMenuAction(e, file)}
                 >
-                  {/* Checkbox */}
-                  <td className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedFiles.some((f) => f.id === file.id)}
-                      onChange={() => handleSelectFile(file)}
-                      className="appearance-none h-4 w-4 border border-gray-300 rounded checked:bg-blue-500 checked:border-blue-500 cursor-pointer"
-                    />
-                  </td>
+                  {/* Selection Indicator Bar (Visual Polish) */}
+                  {selectedFiles.some((f) => f.id === file.id) && (
+                    <td className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 z-10" />
+                  )}
 
-                  {/* File name */}
-                  <td className="px-3 py-2 flex items-center gap-2 text-sm text-gray-800 dark:text-gray-300 cursor-pointer">
-                    {getFileIcon(file, 30)}
-                    <div
-                      className="truncate max-w-xs"
-                      onClick={() =>
-                        file.is_folder && handleFolderClick(file.id, file.display_name)
-                      }
-                    >
-                      {file.display_name} <span className="text-xs text-gray-500 dark:text-gray-400">{file.size}</span>
+                  {/* File Name & Icon */}
+                  <td className="pl-6 py-3 flex items-center gap-3">
+                    <div className="flex-shrink-0 pointer-events-none">
+                      {getFileIcon(file, 24)}
+                    </div>
+                    <div className="flex flex-col min-w-0 pointer-events-none">
+                      <span
+                        className={`text-sm font-medium truncate transition-colors ${
+                          selectedFiles.some((f) => f.id === file.id)
+                            ? "text-blue-700 dark:text-blue-300"
+                            : "text-gray-700 dark:text-gray-200"
+                        }`}
+                      >
+                        {file.display_name}
+                      </span>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500 uppercase">
+                        {file.size || "---"}
+                      </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sm text-gray-800 dark:text-gray-500">
+
+                  {/* Path Cell */}
+                  <td
+                    className={`px-3 py-3 text-xs font-mono pointer-events-none italic ${
+                      selectedFiles.some((f) => f.id === file.id)
+                        ? "text-blue-500/70 dark:text-blue-400/50"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
                     {file.path}
                   </td>
 
-                  {/* Three-dot menu */}
-                  <td className="px-3 py-2 relative text-right">
+                  {/* Actions */}
+                  <td className="pr-4 py-3 text-right">
                     <button
-                      onClick={() =>
-                        setSelectedMenu(selectedMenu === file.id ? null : file.id)
-                      }
-                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-1 rounded"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleContextMenuAction(e, file);
+                      }}
+                      className={`p-2 rounded-full transition-all ${
+                        selectedFiles.some((f) => f.id === file.id)
+                          ? "opacity-100 text-blue-600 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/50"
+                          : "opacity-0 group-hover:opacity-100 text-gray-400 hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
+                      }`}
                     >
-                      <FaEllipsisV size={16} />
+                      <FaEllipsisV size={14} />
                     </button>
-                    
-                    {/* Dropdown menu */}
-                    {selectedMenu === file.id && (
-                       <div className="absolute bottom-0  right-0 mt-2 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-20 overflow-hidden">
-                        {/* Close button */}
-                        <div className="flex justify-end border-b border-gray-200 dark:border-gray-700">
-                          <button
-                            className="text-red-400 rounded-full p-1 m-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => setSelectedMenu(false)}
-                          >
-                            <FaXmark size={12} />
-                          </button>
-                        </div>
-                         {breadcrumb[breadcrumb.length - 1]?.id === "recyclebin" ?(
-                          <><div className="flex flex-col text-sm text-gray-800 dark:text-gray-300">
-                          <button
-                            onClick={() => handleRestoreFile(file.id)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <FaUndo /> Restore
-                          </button>
-                          <button
-                            onClick={() => handlePermanentDelete(file.id)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <FaTrashAlt /> PermanentDelete
-                          </button>
-                          
-                        </div></>
-                          ):(<>
-                          <div className="flex flex-col text-sm text-gray-800 dark:text-gray-300">
-                          <button
-                            onClick={() => handleDownload(file.id, file.display_name)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <FaDownload /> Download
-                          </button>
-                          <button
-                            onClick={() => handleViewLogs(file.id, file.display_name)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <FaEye /> View Logs
-                          </button>
-                          <button
-                            onClick={() => handleDeleteFile(file.id, file.display_name)}
-                            className="w-full text-left px-4 py-2 hover:bg-red-100 dark:hover:bg-red-700 flex items-center gap-2"
-                          >
-                            <FaTrash /> Delete
-                          </button>
-                          <button
-                            onClick={() => openRenameModal(file.id, file.display_name)} 
-                            className="w-full text-left px-4 py-2 hover:bg-pink-100 dark:hover:bg-pink-700 flex items-center gap-2"
-                          >
-                            <FaEdit /> Rename
-                          </button>
-                          <button
-                            onClick={() => handleViewProperties(file.id)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <FaWrench /> Properties
-                          </button>
-                        </div>
-                          </>)}
-
-                        {/* Action buttons */}
-                        
-                      </div>
-                     
-                    )}
                   </td>
                 </tr>
-
-
               )
             )
           )}
@@ -1195,14 +1188,10 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
         </div>
       )}
 
-
       {properitesModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg relative">
-
-
             <div className="max-h-96 overflow-y-auto pb-2 text-sm">
-
               {currentProperties.length > 0 ? (
                 <div className="grid gap-4">
                   {currentProperties.map((prop, index) => (
@@ -1223,7 +1212,6 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                         </button>
                       </div>
 
-
                       {/* File Info Table */}
                       <div className="overflow-x-auto p-3">
                         <table className="min-w-full text-gray-700 dark:text-gray-300 text-sm">
@@ -1233,25 +1221,34 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                               <td className="px-4 py-2">{prop.size}</td>
                             </tr>
                             <tr className="border-b border-gray-200 dark:border-gray-700">
-                              <td className="font-medium px-4 py-2">Location:</td>
-                              <td className="px-4 py-2">{prop.absolute_path}</td>
+                              <td className="font-medium px-4 py-2">
+                                Location:
+                              </td>
+                              <td className="px-4 py-2">
+                                {prop.absolute_path}
+                              </td>
                             </tr>
                             <tr className="border-b border-gray-200 dark:border-gray-700">
-                              <td className="font-medium px-4 py-2">Created:</td>
+                              <td className="font-medium px-4 py-2">
+                                Created:
+                              </td>
                               <td className="px-4 py-2">{prop.created_at}</td>
                             </tr>
                             <tr className="border-b border-gray-200 dark:border-gray-700">
-                              <td className="font-medium px-4 py-2">Modified:</td>
+                              <td className="font-medium px-4 py-2">
+                                Modified:
+                              </td>
                               <td className="px-4 py-2">{prop.modified_at}</td>
                             </tr>
                             <tr>
-                              <td className="font-medium px-4 py-2">Accessed:</td>
+                              <td className="font-medium px-4 py-2">
+                                Accessed:
+                              </td>
                               <td className="px-4 py-2">{prop.accessed_at}</td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
-
                     </div>
                   ))}
                 </div>
@@ -1260,17 +1257,16 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                   No Properties found.
                 </p>
               )}
-
             </div>
-
-
           </div>
         </div>
       )}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-gray-800 rounded-lg p-6 w-80 shadow-lg">
-            <h3 className="text-lg font-semibold mb-4 text-gray-300">Create New Folder</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-300">
+              Create New Folder
+            </h3>
             <input
               type="text"
               value={folderName}
@@ -1286,7 +1282,10 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                 Done
               </button>
               <button
-                onClick={() => { setShowModal(false); setFolderName(""); }}
+                onClick={() => {
+                  setShowModal(false);
+                  setFolderName("");
+                }}
                 className="bg-gray-300 text-gray-700 p-2 rounded hover:bg-gray-400"
               >
                 Cancel
@@ -1298,7 +1297,9 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
       {showFileModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-gray-800 rounded-lg p-6 w-80 shadow-lg">
-            <h3 className="text-lg font-semibold mb-4 text-gray-300">Create New File</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-300">
+              Create New File
+            </h3>
 
             <input
               type="text"
@@ -1308,8 +1309,6 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
               className="w-full border text-white border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4"
             />
 
-
-
             <div className="flex justify-end gap-2">
               <button
                 onClick={handleCreateFile}
@@ -1318,7 +1317,10 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
                 Done
               </button>
               <button
-                onClick={() => { setShowFileModal(false); setFileName(""); }}
+                onClick={() => {
+                  setShowFileModal(false);
+                  setFileName("");
+                }}
                 className="bg-gray-300 text-gray-700 p-2 rounded hover:bg-gray-400"
               >
                 Cancel
@@ -1331,25 +1333,40 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
       {showRenameModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-gray-800 rounded-lg p-6 w-80 shadow-lg">
-            <h3 className="text-lg font-semibold mb-4 text-gray-300">Rename Item</h3>
-            <p className="text-sm text-gray-400 mb-2">Current Name: <b>{fileToRename.fileName}</b></p>
+            <h3 className="text-lg font-semibold mb-4 text-gray-300">
+              Rename Item
+            </h3>
+            <p className="text-sm text-gray-400 mb-2">
+              Current Name: <b>{fileToRename.fileName}</b>
+            </p>
             <input
               type="text"
               value={fileToRename.newName}
-              onChange={(e) => setFileToRename(prev => ({ ...prev, newName: e.target.value }))}
+              onChange={(e) =>
+                setFileToRename((prev) => ({
+                  ...prev,
+                  newName: e.target.value,
+                }))
+              }
               placeholder="Enter new name"
               className="w-full border text-white border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4"
             />
             <div className="flex justify-end gap-2">
-<button
-    onClick={handleRenameSubmit}
-    className="bg-blue-500 text-white p-2 rounded shadow hover:bg-blue-600 disabled:opacity-50"
-    disabled={!fileToRename.newName.trim() || fileToRename.newName === fileToRename.filename}
->
-    Rename
-</button>
               <button
-                onClick={() => { setShowRenameModal(false); setFileToRename({ id: null, fileName: '', newName: '' }); }}
+                onClick={handleRenameSubmit}
+                className="bg-blue-500 text-white p-2 rounded shadow hover:bg-blue-600 disabled:opacity-50"
+                disabled={
+                  !fileToRename.newName.trim() ||
+                  fileToRename.newName === fileToRename.filename
+                }
+              >
+                Rename
+              </button>
+              <button
+                onClick={() => {
+                  setShowRenameModal(false);
+                  setFileToRename({ id: null, fileName: "", newName: "" });
+                }}
                 className="bg-gray-300 text-gray-700 p-2 rounded shadow hover:bg-gray-400"
               >
                 Cancel
@@ -1359,14 +1376,92 @@ className={`text-sm flex items-center ${file.is_star ? "text-yellow-400" : "text
         </div>
       )}
 
-
       {message && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg text-white shadow-lg w-full max-w-lg p-6 relative">
             {message}
           </div>
         </div>
+      )}
 
+      {contextMenu.visible && (
+        <div
+          className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 py-2 w-48"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()} // Prevent closing menu when clicking options
+        >
+          {breadcrumb[breadcrumb.length - 1]?.id === "recyclebin" ? (
+            <>
+              <button
+                onClick={() => {
+                  handleRestoreFile(contextMenu.file.id);
+                  setContextMenu({ visible: false });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-500 hover:text-white flex items-center"
+              >
+                <FaUndo className="mr-2" /> Restore
+              </button>
+              <button
+                onClick={() => {
+                  handlePermanentDelete(contextMenu.file.id);
+                  setContextMenu({ visible: false });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-500 hover:text-white flex items-center"
+              >
+                <FaTrashAlt className="mr-2" /> Permanent Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  handleDownload(
+                    contextMenu.file.id,
+                    contextMenu.file.display_name
+                  );
+                  setContextMenu({ visible: false });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-500 hover:text-white flex items-center"
+              >
+                <FaDownload className="mr-2" /> Download
+              </button>
+              <button
+                onClick={() => {
+                  openRenameModal(
+                    contextMenu.file.id,
+                    contextMenu.file.display_name
+                  );
+                  setContextMenu({ visible: false });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-500 hover:text-white flex items-center"
+              >
+                <FaEdit className="mr-2" /> Rename
+              </button>
+              <button
+                onClick={() => {
+                  handleViewLogs(
+                    contextMenu.file.id,
+                    contextMenu.file.display_name
+                  );
+                  setContextMenu({ visible: false });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-500 hover:text-white flex items-center"
+              >
+                <FaEye className="mr-2" /> Details
+              </button>
+              <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+              <button
+                onClick={() => {
+                  handleSingleDeleteFile(contextMenu.file.id);
+                  setContextMenu({ visible: false });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-500 hover:text-white flex items-center"
+              >
+                <FaTrash className="mr-2" /> Delete
+              </button>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
